@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Dict, Any
 
 
 class LLMProvider(ABC):
@@ -63,7 +64,43 @@ IMPORTANT:
 
 SEARCH QUERY:"""
 
+    JD_SPEC_PROMPT_TEMPLATE = """You are a technical recruiter assistant. Extract structured information from the job description below.
+
+Return a JSON object with the following fields:
+- role_title: The job title (string or null)
+- languages: List of programming languages required (e.g., ["Python", "Go"])
+- core_domains: List of technical domains (e.g., ["machine-learning", "distributed-systems", "backend"])
+- core_keywords: List of must-have technologies/frameworks (e.g., ["kafka", "kubernetes", "grpc"])
+- nice_keywords: List of nice-to-have technologies (e.g., ["airflow", "spark"])
+- recency_days: How recent activity should be (default 365)
+- min_repo_stars: Minimum stars for relevant repos (default 20, higher for senior roles)
+- min_followers: Minimum followers for candidates (default 0)
+- location_hint: Location if specified (string or null)
+
+EXTRACTION RULES:
+1. Normalize language names: "JS" -> "JavaScript", "TS" -> "TypeScript", "py" -> "Python"
+2. Use lowercase for keywords and domains
+3. Separate required vs nice-to-have based on language like "must have" vs "nice to have" / "preferred"
+4. For domains, use GitHub topic-style names: "machine-learning" not "Machine Learning"
+5. For senior roles: min_repo_stars=50, min_followers=10
+6. For mid-level: min_repo_stars=20, min_followers=0
+7. Limit languages to top 3 most important
+8. Limit core_keywords to top 8 most critical
+9. Limit nice_keywords to top 5
+
+JOB DESCRIPTION:
+{jd_text}
+
+IMPORTANT: Return ONLY valid JSON, no explanation or markdown code blocks.
+
+JSON:"""
+
     @abstractmethod
     async def generate_search_query(self, jd_text: str) -> str:
         """Generate a GitHub search query from job description text"""
+        pass
+
+    @abstractmethod
+    async def generate_jd_spec(self, jd_text: str) -> Dict[str, Any]:
+        """Extract structured JD specification from job description text"""
         pass
