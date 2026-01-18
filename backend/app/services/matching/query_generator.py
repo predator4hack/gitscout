@@ -26,7 +26,7 @@ async def generate_query(jd_text: str, provider: str, model: Optional[str] = Non
     elif provider == "gemini":
         llm_provider = GeminiLLMProvider(model=model or "gemini-pro")
     elif provider == "groq":
-        llm_provider = GroqLLMProvider(model=model or "mixtral-8x7b-32768")
+        llm_provider = GroqLLMProvider(model=model or "llama-3.3-70b-versatile")
     elif provider == "ollama":
         llm_provider = OllamaLLMProvider(model=model or "llama2")
     else:
