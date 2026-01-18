@@ -10,7 +10,7 @@ Please go through README.md, specs/brainstorm.md, specs/PRODUCT_SPEC.md and unde
 
 ## Implementation details
 
-1. Search repositories and extract contributors - Repo search is great because job requirements map naturally to repo signals:
+### Search repositories and extract contributors - Repo search is great because job requirements map naturally to repo signals:
 
 -   langugage: Python
 -   Keywords in README/description
@@ -20,7 +20,215 @@ Please go through README.md, specs/brainstorm.md, specs/PRODUCT_SPEC.md and unde
     -   pull contributors for those repos
     -   convert contributors into candidate users
 
-keep only top contributors(by contribution count) to avoid noisy drive-by commits
+Do:
 
-2. User search as supplemental channel
-   Use graphQL queries to directly the users for broader discovery, but expect it to be noisier.
+-   Use an LLM to extract a structured spec (Pydantic output) from the JD.
+-   Use deterministic code to turn that spec into one or more repo search queries (and optionally user search queries).
+
+Key GitHub Search constraints to design around:
+
+-   Query length limit: 256 characters (for REST Search endpoints).
+-   Boolean ops limit: max 5 AND / OR / NOT.
+-   Results cap: only first 1000 results are accessible for any search query.
+
+Suggested pydantic structured output:
+
+```python
+from pydantic import BaseModel, Field
+from typing import List, Optional, Literal
+
+class GitScoutJDSpec(BaseModel):
+    role_title: Optional[str] = None
+
+    # Hard constraints
+    languages: List[str] = Field(default_factory=list)          # ["Python"]
+    core_domains: List[str] = Field(default_factory=list)       # ["machine-learning", "distributed-systems"]
+    core_keywords: List[str] = Field(default_factory=list)      # ["kafka", "ray", "grpc", "kubernetes"]
+
+    # Nice-to-haves
+    nice_keywords: List[str] = Field(default_factory=list)      # ["spark", "airflow"]
+
+    # Search shaping
+    recency_days: int = 365
+    min_repo_stars: int = 20
+    exclude_forks: bool = True
+    exclude_archived: bool = True
+
+    # Optional user-side constraints (if you still do USER search too)
+    min_followers: int = 0
+    location_hint: Optional[str] = None
+
+    # Query generation control
+    max_repo_queries: int = 8
+    max_repos_per_query: int = 20
+```
+
+LLM prompt strategy (high level):
+
+-   Extract canonical terms (e.g., “distributed systems” → keywords like kafka, grpc, raft, kubernetes, microservices).
+-   Prefer GitHub-native signals: topic: values, repo names, common stack terms.
+
+GraphQL query to retrieve repo metadata efficiently:
+
+```graphql
+query SearchRepos($query: String!, $first: Int!, $after: String) {
+    search(query: $query, type: REPOSITORY, first: $first, after: $after) {
+        repositoryCount
+        pageInfo {
+            hasNextPage
+            endCursor
+        }
+        nodes {
+            ... on Repository {
+                name
+                nameWithOwner
+                url
+                description
+                stargazerCount
+                forkCount
+                isFork
+                isArchived
+                pushedAt
+
+                owner {
+                    login
+                }
+
+                primaryLanguage {
+                    name
+                }
+                languages(first: 5, orderBy: { field: SIZE, direction: DESC }) {
+                    edges {
+                        size
+                        node {
+                            name
+                        }
+                    }
+                }
+
+                repositoryTopics(first: 8) {
+                    nodes {
+                        topic {
+                            name
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+Repo search query string examples (built by your deterministic builder):
+
+-   language:Python topic:machine-learning topic:distributed-systems stars:>50 pushed:>2024-01-01
+-   language:Python (kafka OR grpc OR kubernetes) stars:>20 pushed:>2024-01-01 (watch boolean op + length limits)
+
+Use REST List repository contributors
+
+```bash
+curl -L \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  "https://api.github.com/repos/{owner}/{repo}/contributors?per_page=10"
+```
+
+### User search as supplemental channel
+
+Use graphQL queries to directly the users for broader discovery, but expect it to be noisier.
+
+## Stitching it together efficiently (Repo-first → Users)
+
+Here’s the cleanest Phase 1 pipeline that avoids excess GraphQL nesting and minimizes calls:
+
+### Step 1 — Repo search (GraphQL)
+
+Run SearchRepos for each generated repo query
+
+Collect repos (dedupe by nameWithOwner)
+
+Sort repos by your simple heuristic (e.g., stars desc, pushedAt desc)
+
+Keep top M repos overall (e.g., 50–200)
+
+### Step 2 — Contributors (REST)
+
+For each selected repo:
+
+Call /contributors?per_page=10
+
+Extract {login, node_id, contributions}
+
+Aggregate candidate users across repos:
+
+candidate_score_seed += f(repo_weight, contributions_rank) (even if you don’t do full scoring yet)
+
+### Step 3 — Enrich users (GraphQL) using nodes(ids: [...])
+
+Since REST contributors returns node_id, you can batch fetch details:
+
+```graphql
+query HydrateUsers($ids: [ID!]!) {
+    nodes(ids: $ids) {
+        ... on User {
+            login
+            name
+            url
+            avatarUrl
+            bio
+            location
+            company
+            followers {
+                totalCount
+            }
+
+            contributionsCollection {
+                contributionCalendar {
+                    totalContributions
+                }
+                totalCommitContributions
+                totalPullRequestContributions
+                totalIssueContributions
+                totalPullRequestReviewContributions
+            }
+
+            repositories(
+                first: 8
+                orderBy: { field: STARGAZERS, direction: DESC }
+            ) {
+                nodes {
+                    nameWithOwner
+                    url
+                    description
+                    stargazerCount
+                    forkCount
+                    isFork
+                    pushedAt
+                    primaryLanguage {
+                        name
+                    }
+                    languages(
+                        first: 5
+                        orderBy: { field: SIZE, direction: DESC }
+                    ) {
+                        edges {
+                            size
+                            node {
+                                name
+                            }
+                        }
+                    }
+                    repositoryTopics(first: 8) {
+                        nodes {
+                            topic {
+                                name
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+```
