@@ -1,9 +1,11 @@
 import logging
 import sys
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from .api.routes import router
+from .services.cache.search_cache import get_search_cache
 
 # Load environment variables
 load_dotenv()
@@ -23,11 +25,26 @@ logging.getLogger("gitscout").setLevel(logging.DEBUG)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
+logger = logging.getLogger("gitscout.main")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan events"""
+    # Startup: Initialize cache cleanup task
+    cache = get_search_cache()
+    cache.start_cleanup_task()
+    logger.info("Search cache initialized with cleanup task")
+    yield
+    # Shutdown: cleanup happens automatically
+
+
 # Create FastAPI app
 app = FastAPI(
     title="GitScout API",
     description="GitHub candidate discovery API for recruiters",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan
 )
 
 # Configure CORS

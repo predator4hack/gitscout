@@ -25,3 +25,36 @@ export async function searchCandidates(
 
     return response.json();
 }
+
+export async function fetchSearchPage(
+    sessionId: string,
+    page: number,
+    pageSize: number = 10
+): Promise<SearchResponse> {
+    const params = new URLSearchParams({
+        session_id: sessionId,
+        page: page.toString(),
+        page_size: pageSize.toString(),
+    });
+
+    const response = await fetch(
+        `${API_BASE_URL}/api/search/page?${params}`,
+        {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+            },
+        }
+    );
+
+    if (!response.ok) {
+        const error = await response
+            .json()
+            .catch(() => ({ detail: "Unknown error" }));
+        throw new Error(
+            error.detail || `HTTP error! status: ${response.status}`
+        );
+    }
+
+    return response.json();
+}

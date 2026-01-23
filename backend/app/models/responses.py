@@ -25,3 +25,15 @@ class SearchResponse(BaseModel):
     candidates: List[Candidate]
     totalFound: int
     query: str
+
+
+class PaginatedSearchResponse(BaseModel):
+    """Response for paginated search results"""
+    candidates: List[Candidate]
+    totalFound: int
+    totalCached: int
+    query: str
+    sessionId: str
+    page: int
+    pageSize: int
+    hasMore: bool

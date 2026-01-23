@@ -28,5 +28,10 @@ export interface Candidate {
 export interface SearchResponse {
   candidates: Candidate[];
   totalFound: number;
+  totalCached: number;
   query: string;
+  sessionId: string;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
 }

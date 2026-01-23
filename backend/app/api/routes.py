@@ -1,15 +1,18 @@
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from ..models.requests import SearchRequest
-from ..models.responses import SearchResponse
+from ..models.responses import SearchResponse, PaginatedSearchResponse
 from ..services.github.client import GitHubClient
 from ..services.matching.query_generator import generate_query, generate_jd_spec, generate_repo_queries
 from ..services.matching.repo_pipeline import run_repo_contributors_pipeline
 from ..services.matching.ranker import rank_candidates
+from ..services.cache.search_cache import get_search_cache
 
 logger = logging.getLogger("gitscout.api")
 
 router = APIRouter()
+
+DEFAULT_PAGE_SIZE = 10
 
 
 @router.get("/health")
@@ -71,16 +74,13 @@ async def search_candidates(request: SearchRequest):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
-@router.post("/search/repos", response_model=SearchResponse)
+@router.post("/search/repos", response_model=PaginatedSearchResponse)
 async def search_via_repos(request: SearchRequest):
     """
-    Search for GitHub candidates via repository contributors
+    Search for GitHub candidates via repository contributors.
 
-    Pipeline:
-    1. Extract structured JD spec using LLM
-    2. Generate repo search queries from spec
-    3. Search repos, fetch contributors, hydrate users
-    4. Rank and return candidates
+    Returns first page of results with session ID for pagination.
+    Use GET /search/page with the session ID to fetch subsequent pages.
     """
     logger.info(f"POST /search/repos - provider: {request.provider.value}, model: {request.model}")
     logger.debug(f"JD text: {request.jd_text[:200]}..." if len(request.jd_text) > 200 else f"JD text: {request.jd_text}")
@@ -107,7 +107,7 @@ async def search_via_repos(request: SearchRequest):
             spec=spec,
             queries=queries,
             github_client=github_client,
-            max_repos=100,
+            max_repos=10,
             contributors_per_repo=10
         )
 
@@ -124,12 +124,32 @@ async def search_via_repos(request: SearchRequest):
         # 5. Rank candidates (enhanced with contrib_score_seed)
         candidates = rank_candidates(users, request.jd_text)
 
-        # 6. Return response
-        logger.info(f"POST /search/repos complete - returning {len(candidates)} candidates")
-        return SearchResponse(
+        # 6. Cache all results and create session
+        cache = get_search_cache()
+        query_str = "; ".join(queries[:3])
+        session_id = cache.create_session(
             candidates=candidates,
-            totalFound=len(candidates),
-            query="; ".join(queries[:3])  # Show first 3 queries used
+            query=query_str,
+            total_found=len(candidates)
+        )
+
+        # 7. Get first page
+        page_data = cache.get_page(session_id, page=0, page_size=DEFAULT_PAGE_SIZE)
+
+        if page_data is None:
+            raise HTTPException(status_code=500, detail="Failed to cache search results")
+
+        logger.info(f"POST /search/repos complete - session {session_id[:8]}... with {len(candidates)} total candidates")
+
+        return PaginatedSearchResponse(
+            candidates=page_data["candidates"],
+            totalFound=page_data["totalFound"],
+            totalCached=page_data["totalCached"],
+            query=page_data["query"],
+            sessionId=page_data["sessionId"],
+            page=page_data["page"],
+            pageSize=page_data["pageSize"],
+            hasMore=page_data["hasMore"]
         )
 
     except ValueError as e:
@@ -138,3 +158,37 @@ async def search_via_repos(request: SearchRequest):
     except Exception as e:
         logger.error(f"POST /search/repos internal error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/search/page", response_model=PaginatedSearchResponse)
+async def get_search_page(
+    session_id: str = Query(..., description="Session ID from initial search"),
+    page: int = Query(0, ge=0, description="Page number (0-indexed)"),
+    page_size: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=50, description="Results per page")
+):
+    """
+    Get a page of cached search results.
+
+    Use the session_id from the initial search response to fetch subsequent pages.
+    """
+    logger.info(f"GET /search/page - session: {session_id[:8]}..., page: {page}, page_size: {page_size}")
+
+    cache = get_search_cache()
+    page_data = cache.get_page(session_id, page=page, page_size=page_size)
+
+    if page_data is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Session not found or expired. Please perform a new search."
+        )
+
+    return PaginatedSearchResponse(
+        candidates=page_data["candidates"],
+        totalFound=page_data["totalFound"],
+        totalCached=page_data["totalCached"],
+        query=page_data["query"],
+        sessionId=page_data["sessionId"],
+        page=page_data["page"],
+        pageSize=page_data["pageSize"],
+        hasMore=page_data["hasMore"]
+    )

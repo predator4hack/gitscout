@@ -133,18 +133,18 @@ def generate_repo_queries(spec: GitScoutJDSpec) -> List[str]:
                     queries.append(query)
 
     # Strategy 3: Language + single topic keyword
-    for lang in spec.languages[:2]:
-        for kw in spec.core_keywords[:4]:
-            query = f"language:{lang} topic:{kw} {base_filter_str}"
-            if len(query) <= 256 and query not in queries:
-                queries.append(query)
+    # for lang in spec.languages[:2]:
+    #     for kw in spec.core_keywords[:4]:
+    #         query = f"language:{lang} topic:{kw} {base_filter_str}"
+    #         if len(query) <= 256 and query not in queries:
+    #             queries.append(query)
 
     # Strategy 4: Language only (fallback if nothing else)
-    if not queries and spec.languages:
-        for lang in spec.languages[:2]:
-            query = f"language:{lang} {base_filter_str}"
-            if len(query) <= 256:
-                queries.append(query)
+    # if not queries and spec.languages:
+    #     for lang in spec.languages[:2]:
+    #         query = f"language:{lang} {base_filter_str}"
+    #         if len(query) <= 256:
+    #             queries.append(query)
 
     # Dedupe and limit
     unique_queries = list(dict.fromkeys(queries))
