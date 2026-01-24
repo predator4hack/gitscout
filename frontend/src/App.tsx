@@ -141,7 +141,7 @@ function App() {
         {hasSession && (
           <FilterPanel
             filters={filters}
-            onFiltersChange={handleFiltersChange}
+            onApplyFilters={handleFiltersChange}
             disabled={loading}
           />
         )}

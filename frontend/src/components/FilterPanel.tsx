@@ -3,34 +3,48 @@ import { CandidateFilters, LastContributionPeriod } from "../types";
 
 interface FilterPanelProps {
     filters: CandidateFilters;
-    onFiltersChange: (filters: CandidateFilters) => void;
+    onApplyFilters: (filters: CandidateFilters) => void;
     disabled?: boolean;
 }
 
 export function FilterPanel({
     filters,
-    onFiltersChange,
+    onApplyFilters,
     disabled,
 }: FilterPanelProps) {
     const [isExpanded, setIsExpanded] = useState(false);
+    // Local state for filter inputs (doesn't trigger API calls)
+    const [localFilters, setLocalFilters] = useState<CandidateFilters>(filters);
 
-    const updateFilter = useCallback(
+    const updateLocalFilter = useCallback(
         <K extends keyof CandidateFilters>(
             key: K,
             value: CandidateFilters[K]
         ) => {
-            onFiltersChange({ ...filters, [key]: value || undefined });
+            setLocalFilters((prev) => ({ ...prev, [key]: value || undefined }));
         },
-        [filters, onFiltersChange]
+        []
     );
 
-    const clearFilters = useCallback(() => {
-        onFiltersChange({});
-    }, [onFiltersChange]);
+    const handleApplyFilters = useCallback(() => {
+        onApplyFilters(localFilters);
+    }, [localFilters, onApplyFilters]);
 
-    const activeFilterCount = Object.values(filters).filter(
+    const handleClearFilters = useCallback(() => {
+        setLocalFilters({});
+        onApplyFilters({});
+    }, [onApplyFilters]);
+
+    const localFilterCount = Object.values(localFilters).filter(
         (v) => v !== undefined
     ).length;
+
+    const appliedFilterCount = Object.values(filters).filter(
+        (v) => v !== undefined
+    ).length;
+
+    // Check if local filters differ from applied filters
+    const hasUnappliedChanges = JSON.stringify(localFilters) !== JSON.stringify(filters);
 
     return (
         <div className="filter-panel">
@@ -42,23 +56,13 @@ export function FilterPanel({
                     disabled={disabled}
                 >
                     Filters{" "}
-                    {activeFilterCount > 0 && (
-                        <span className="filter-badge">{activeFilterCount}</span>
+                    {appliedFilterCount > 0 && (
+                        <span className="filter-badge">{appliedFilterCount}</span>
                     )}
                     <span className={`chevron ${isExpanded ? "expanded" : ""}`}>
                         ▼
                     </span>
                 </button>
-                {activeFilterCount > 0 && (
-                    <button
-                        type="button"
-                        className="clear-filters"
-                        onClick={clearFilters}
-                        disabled={disabled}
-                    >
-                        Clear all
-                    </button>
-                )}
             </div>
 
             {isExpanded && (
@@ -70,9 +74,9 @@ export function FilterPanel({
                             id="filter-location"
                             type="text"
                             placeholder="e.g., San Francisco, USA"
-                            value={filters.location || ""}
+                            value={localFilters.location || ""}
                             onChange={(e) =>
-                                updateFilter("location", e.target.value || undefined)
+                                updateLocalFilter("location", e.target.value || undefined)
                             }
                             disabled={disabled}
                         />
@@ -89,9 +93,9 @@ export function FilterPanel({
                                 type="number"
                                 min="0"
                                 placeholder="0"
-                                value={filters.followersMin ?? ""}
+                                value={localFilters.followersMin ?? ""}
                                 onChange={(e) =>
-                                    updateFilter(
+                                    updateLocalFilter(
                                         "followersMin",
                                         e.target.value
                                             ? parseInt(e.target.value)
@@ -110,9 +114,9 @@ export function FilterPanel({
                                 type="number"
                                 min="0"
                                 placeholder="Any"
-                                value={filters.followersMax ?? ""}
+                                value={localFilters.followersMax ?? ""}
                                 onChange={(e) =>
-                                    updateFilter(
+                                    updateLocalFilter(
                                         "followersMax",
                                         e.target.value
                                             ? parseInt(e.target.value)
@@ -129,9 +133,9 @@ export function FilterPanel({
                         <label className="checkbox-label">
                             <input
                                 type="checkbox"
-                                checked={filters.hasEmail || false}
+                                checked={localFilters.hasEmail || false}
                                 onChange={(e) =>
-                                    updateFilter(
+                                    updateLocalFilter(
                                         "hasEmail",
                                         e.target.checked || undefined
                                     )
@@ -143,9 +147,9 @@ export function FilterPanel({
                         <label className="checkbox-label">
                             <input
                                 type="checkbox"
-                                checked={filters.hasAnyContact || false}
+                                checked={localFilters.hasAnyContact || false}
                                 onChange={(e) =>
-                                    updateFilter(
+                                    updateLocalFilter(
                                         "hasAnyContact",
                                         e.target.checked || undefined
                                     )
@@ -163,9 +167,9 @@ export function FilterPanel({
                         </label>
                         <select
                             id="filter-last-contribution"
-                            value={filters.lastContribution || ""}
+                            value={localFilters.lastContribution || ""}
                             onChange={(e) =>
-                                updateFilter(
+                                updateLocalFilter(
                                     "lastContribution",
                                     (e.target.value as LastContributionPeriod) ||
                                         undefined
@@ -179,6 +183,27 @@ export function FilterPanel({
                             <option value="6m">Last 6 months</option>
                             <option value="1y">Last year</option>
                         </select>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="filter-actions">
+                        <button
+                            type="button"
+                            className="filter-apply-btn"
+                            onClick={handleApplyFilters}
+                            disabled={disabled || !hasUnappliedChanges}
+                        >
+                            Apply Filters
+                            {localFilterCount > 0 && ` (${localFilterCount})`}
+                        </button>
+                        <button
+                            type="button"
+                            className="filter-clear-btn"
+                            onClick={handleClearFilters}
+                            disabled={disabled || (localFilterCount === 0 && appliedFilterCount === 0)}
+                        >
+                            Clear Filters
+                        </button>
                     </div>
                 </div>
             )}

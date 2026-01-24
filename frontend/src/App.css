@@ -484,6 +484,60 @@ body {
   margin: 0;
 }
 
+/* Filter Action Buttons */
+.filter-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.filter-apply-btn {
+  flex: 1;
+  padding: 0.625rem 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.filter-apply-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.filter-apply-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.filter-clear-btn {
+  padding: 0.625rem 1rem;
+  background: white;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-clear-btn:hover:not(:disabled) {
+  background: #f5f5f5;
+  border-color: #ccc;
+  color: #333;
+}
+
+.filter-clear-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Candidate Meta Styles */
 .candidate-meta {
   display: flex;
