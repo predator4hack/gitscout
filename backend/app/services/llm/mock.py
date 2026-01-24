@@ -98,6 +98,10 @@ class MockLLMProvider(LLMProvider):
             if kw in jd_lower and kw not in core_keywords:
                 core_keywords.append(kw)
 
+        # If we have languages but no keywords/domains, add generic defaults
+        if languages and not core_keywords and not domains:
+            core_keywords = ["api", "library", "framework", "cli", "sdk"]
+
         # Extract nice-to-have keywords (less common)
         nice_keywords = []
         nice_list = ['terraform', 'ansible', 'jenkins', 'gitlab', 'prometheus',
