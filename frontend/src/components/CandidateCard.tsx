@@ -24,6 +24,41 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
         </div>
       </div>
 
+      {/* Contact/location info */}
+      <div className="candidate-meta">
+        {candidate.location && (
+          <span className="meta-item">📍 {candidate.location}</span>
+        )}
+        {candidate.followers > 0 && (
+          <span className="meta-item">👥 {candidate.followers.toLocaleString()} followers</span>
+        )}
+        {candidate.email && (
+          <a href={`mailto:${candidate.email}`} className="meta-item meta-link">
+            ✉️ {candidate.email}
+          </a>
+        )}
+        {candidate.twitterUsername && (
+          <a
+            href={`https://twitter.com/${candidate.twitterUsername}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="meta-item meta-link"
+          >
+            🐦 @{candidate.twitterUsername}
+          </a>
+        )}
+        {candidate.websiteUrl && (
+          <a
+            href={candidate.websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="meta-item meta-link"
+          >
+            🔗 Website
+          </a>
+        )}
+      </div>
+
       <p className="match-reason">{candidate.matchReason}</p>
 
       {candidate.topRepos.length > 0 && (

@@ -12,10 +12,21 @@ query SearchUsers($query: String!, $first: Int!, $after: String) {
         bio
         location
         company
+        email
+        twitterUsername
+        websiteUrl
         followers { totalCount }
 
         contributionsCollection {
-          contributionCalendar { totalContributions }
+          contributionCalendar {
+            totalContributions
+            weeks {
+              contributionDays {
+                contributionCount
+                date
+              }
+            }
+          }
           totalCommitContributions
           totalPullRequestContributions
           totalIssueContributions
@@ -111,6 +122,9 @@ query HydrateUsers($ids: [ID!]!) {
       bio
       location
       company
+      email
+      twitterUsername
+      websiteUrl
       followers {
         totalCount
       }
@@ -118,6 +132,12 @@ query HydrateUsers($ids: [ID!]!) {
       contributionsCollection {
         contributionCalendar {
           totalContributions
+          weeks {
+            contributionDays {
+              contributionCount
+              date
+            }
+          }
         }
         totalCommitContributions
         totalPullRequestContributions

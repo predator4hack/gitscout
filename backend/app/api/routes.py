@@ -1,12 +1,14 @@
 import logging
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
-from ..models.requests import SearchRequest
+from ..models.requests import SearchRequest, CandidateFilters
 from ..models.responses import SearchResponse, PaginatedSearchResponse
 from ..services.github.client import GitHubClient
 from ..services.matching.query_generator import generate_query, generate_jd_spec, generate_repo_queries
 from ..services.matching.repo_pipeline import run_repo_contributors_pipeline
 from ..services.matching.ranker import rank_candidates
 from ..services.cache.search_cache import get_search_cache
+from ..services.filtering.candidate_filter import filter_candidates
 
 logger = logging.getLogger("gitscout.api")
 
@@ -164,31 +166,68 @@ async def search_via_repos(request: SearchRequest):
 async def get_search_page(
     session_id: str = Query(..., description="Session ID from initial search"),
     page: int = Query(0, ge=0, description="Page number (0-indexed)"),
-    page_size: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=50, description="Results per page")
+    page_size: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=50, description="Results per page"),
+    # Filter parameters
+    location: Optional[str] = Query(None, description="Filter by location (substring match)"),
+    followers_min: Optional[int] = Query(None, ge=0, description="Minimum followers"),
+    followers_max: Optional[int] = Query(None, ge=0, description="Maximum followers"),
+    has_email: Optional[bool] = Query(None, description="Must have public email"),
+    has_any_contact: Optional[bool] = Query(None, description="Must have email, twitter, or website"),
+    last_contribution: Optional[str] = Query(None, pattern="^(30d|3m|6m|1y)$", description="Last activity within period")
 ):
     """
-    Get a page of cached search results.
+    Get a page of cached search results with optional filters.
 
+    Filters are applied at retrieval time to the cached results.
     Use the session_id from the initial search response to fetch subsequent pages.
     """
     logger.info(f"GET /search/page - session: {session_id[:8]}..., page: {page}, page_size: {page_size}")
 
     cache = get_search_cache()
-    page_data = cache.get_page(session_id, page=page, page_size=page_size)
 
-    if page_data is None:
+    # Get all cached candidates for filtering
+    session_data = cache.get_session_data(session_id)
+
+    if session_data is None:
         raise HTTPException(
             status_code=404,
             detail="Session not found or expired. Please perform a new search."
         )
 
+    # Build filters object if any filter param present
+    filters = None
+    if any([location, followers_min is not None, followers_max is not None, has_email, has_any_contact, last_contribution]):
+        filters = CandidateFilters(
+            location=location,
+            followers_min=followers_min,
+            followers_max=followers_max,
+            has_email=has_email,
+            has_any_contact=has_any_contact,
+            last_contribution=last_contribution
+        )
+
+    # Apply filters
+    all_candidates = session_data["candidates"]
+    filtered_candidates = filter_candidates(all_candidates, filters)
+
+    # Paginate filtered results
+    start_idx = page * page_size
+    end_idx = start_idx + page_size
+    page_candidates = filtered_candidates[start_idx:end_idx]
+    has_more = end_idx < len(filtered_candidates)
+
+    logger.debug(
+        f"Session {session_id[:8]}... page {page}: "
+        f"filtered {len(filtered_candidates)}/{len(all_candidates)}, returning {len(page_candidates)}"
+    )
+
     return PaginatedSearchResponse(
-        candidates=page_data["candidates"],
-        totalFound=page_data["totalFound"],
-        totalCached=page_data["totalCached"],
-        query=page_data["query"],
-        sessionId=page_data["sessionId"],
-        page=page_data["page"],
-        pageSize=page_data["pageSize"],
-        hasMore=page_data["hasMore"]
+        candidates=page_candidates,
+        totalFound=session_data["total_found"],
+        totalCached=len(filtered_candidates),
+        query=session_data["query"],
+        sessionId=session_id,
+        page=page,
+        pageSize=page_size,
+        hasMore=has_more
     )

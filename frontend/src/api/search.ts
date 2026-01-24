@@ -1,4 +1,4 @@
-import { SearchRequest, SearchResponse } from "../types";
+import { SearchRequest, SearchResponse, CandidateFilters } from "../types";
 
 const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
@@ -29,13 +29,27 @@ export async function searchCandidates(
 export async function fetchSearchPage(
     sessionId: string,
     page: number,
-    pageSize: number = 10
+    pageSize: number = 10,
+    filters?: CandidateFilters
 ): Promise<SearchResponse> {
     const params = new URLSearchParams({
         session_id: sessionId,
         page: page.toString(),
         page_size: pageSize.toString(),
     });
+
+    // Add filter parameters if present
+    if (filters) {
+        if (filters.location) params.set("location", filters.location);
+        if (filters.followersMin !== undefined)
+            params.set("followers_min", filters.followersMin.toString());
+        if (filters.followersMax !== undefined)
+            params.set("followers_max", filters.followersMax.toString());
+        if (filters.hasEmail) params.set("has_email", "true");
+        if (filters.hasAnyContact) params.set("has_any_contact", "true");
+        if (filters.lastContribution)
+            params.set("last_contribution", filters.lastContribution);
+    }
 
     const response = await fetch(
         `${API_BASE_URL}/api/search/page?${params}`,

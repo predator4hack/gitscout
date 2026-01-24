@@ -19,6 +19,12 @@ class Candidate(BaseModel):
     score: float
     topRepos: List[Repository]
     matchReason: str
+    location: Optional[str] = None
+    followers: int = 0
+    email: Optional[str] = None
+    twitterUsername: Optional[str] = None
+    websiteUrl: Optional[str] = None
+    lastContributionDate: Optional[str] = None
 
 
 class SearchResponse(BaseModel):

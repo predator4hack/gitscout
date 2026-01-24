@@ -140,6 +140,31 @@ class SearchCache:
             "sessionId": session_id
         }
 
+    def get_session_data(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get all session data without pagination.
+        Used for applying filters before pagination.
+
+        Args:
+            session_id: The session ID
+
+        Returns:
+            Dict with all candidates and metadata, or None if not found
+        """
+        cached = self._cache.get(session_id)
+        if cached is None:
+            logger.warning(f"Session not found: {session_id[:8]}...")
+            return None
+
+        # Update last accessed time
+        cached.last_accessed = time.time()
+
+        return {
+            "candidates": cached.candidates,
+            "query": cached.query,
+            "total_found": cached.total_found,
+        }
+
     def delete_session(self, session_id: str) -> bool:
         """Delete a session from cache"""
         if session_id in self._cache:

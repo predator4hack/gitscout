@@ -93,7 +93,13 @@ def rank_candidates(users: List[Dict[str, Any]], jd_text: str) -> List[Candidate
             avatarUrl=user_data.get("avatarUrl", ""),
             score=score,
             topRepos=top_repos,
-            matchReason=match_reason
+            matchReason=match_reason,
+            location=user_data.get("location"),
+            followers=user_data.get("followers", 0),
+            email=user_data.get("email"),
+            twitterUsername=user_data.get("twitterUsername"),
+            websiteUrl=user_data.get("websiteUrl"),
+            lastContributionDate=user_data.get("lastContributionDate"),
         )
 
         candidates.append(candidate)

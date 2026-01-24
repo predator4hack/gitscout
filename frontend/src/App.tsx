@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import { SearchForm } from './components/SearchForm';
+import { FilterPanel } from './components/FilterPanel';
 import { ResultsList } from './components/ResultsList';
 import { searchCandidates, fetchSearchPage } from './api/search';
-import { SearchRequest, Candidate } from './types';
+import { SearchRequest, Candidate, CandidateFilters } from './types';
 import './App.css';
 
 interface PaginationState {
@@ -31,12 +32,43 @@ function App() {
     isLoadingMore: false,
   });
 
+  // Filter state
+  const [filters, setFilters] = useState<CandidateFilters>({});
+
+  // Handler for filter changes - resets to page 0 with new filters
+  const handleFiltersChange = useCallback(async (newFilters: CandidateFilters) => {
+    setFilters(newFilters);
+
+    // If we have an active session, re-fetch page 0 with new filters
+    if (pagination.sessionId) {
+      setLoading(true);
+      setError(null);
+      setCandidates([]);
+
+      try {
+        const response = await fetchSearchPage(pagination.sessionId, 0, 10, newFilters);
+        setCandidates(response.candidates);
+        setPagination({
+          sessionId: response.sessionId,
+          currentPage: response.page,
+          hasMore: response.hasMore,
+          isLoadingMore: false,
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    }
+  }, [pagination.sessionId]);
+
   // Initial search handler
   const handleSearch = async (request: SearchRequest) => {
     setLoading(true);
     setError(null);
     setLoadMoreError(null);
     setCandidates([]);
+    setFilters({});  // Reset filters on new search
     setPagination({
       sessionId: null,
       currentPage: 0,
@@ -75,7 +107,7 @@ function App() {
 
     try {
       const nextPage = pagination.currentPage + 1;
-      const response = await fetchSearchPage(pagination.sessionId, nextPage);
+      const response = await fetchSearchPage(pagination.sessionId, nextPage, 10, filters);
 
       // Append new candidates to existing list
       setCandidates(prev => [...prev, ...response.candidates]);
@@ -90,9 +122,10 @@ function App() {
       setLoadMoreError(err instanceof Error ? err.message : 'Failed to load more results');
       setPagination(prev => ({ ...prev, isLoadingMore: false }));
     }
-  }, [pagination.sessionId, pagination.currentPage, pagination.hasMore, pagination.isLoadingMore]);
+  }, [pagination.sessionId, pagination.currentPage, pagination.hasMore, pagination.isLoadingMore, filters]);
 
   const hasResults = candidates.length > 0;
+  const hasSession = pagination.sessionId !== null;
 
   return (
     <div className="app">
@@ -103,6 +136,15 @@ function App() {
 
       <main className="main">
         <SearchForm onSearch={handleSearch} loading={loading} />
+
+        {/* Filter panel - only show after search has session */}
+        {hasSession && (
+          <FilterPanel
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            disabled={loading}
+          />
+        )}
 
         {error && (
           <div className="error">

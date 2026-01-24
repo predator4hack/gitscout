@@ -23,6 +23,12 @@ export interface Candidate {
   score: number;
   topRepos: Repository[];
   matchReason: string;
+  location: string | null;
+  followers: number;
+  email: string | null;
+  twitterUsername: string | null;
+  websiteUrl: string | null;
+  lastContributionDate: string | null;
 }
 
 export interface SearchResponse {
@@ -34,4 +40,15 @@ export interface SearchResponse {
   page: number;
   pageSize: number;
   hasMore: boolean;
+}
+
+export type LastContributionPeriod = "30d" | "3m" | "6m" | "1y";
+
+export interface CandidateFilters {
+  location?: string;
+  followersMin?: number;
+  followersMax?: number;
+  hasEmail?: boolean;
+  hasAnyContact?: boolean;
+  lastContribution?: LastContributionPeriod;
 }

@@ -436,6 +436,18 @@ class GitHubClient:
 
         # Parse contributions
         contributions = user_node.get("contributionsCollection", {})
+        calendar = contributions.get("contributionCalendar", {})
+
+        # Extract last contribution date from calendar weeks
+        last_contribution_date = None
+        weeks = calendar.get("weeks", [])
+        for week in reversed(weeks):
+            for day in reversed(week.get("contributionDays", [])):
+                if day.get("contributionCount", 0) > 0:
+                    last_contribution_date = day.get("date")
+                    break
+            if last_contribution_date:
+                break
 
         return {
             "login": user_node.get("login", ""),
@@ -445,11 +457,15 @@ class GitHubClient:
             "bio": user_node.get("bio"),
             "location": user_node.get("location"),
             "company": user_node.get("company"),
+            "email": user_node.get("email"),
+            "twitterUsername": user_node.get("twitterUsername"),
+            "websiteUrl": user_node.get("websiteUrl"),
             "followers": user_node.get("followers", {}).get("totalCount", 0),
-            "totalContributions": contributions.get("contributionCalendar", {}).get("totalContributions", 0),
+            "totalContributions": calendar.get("totalContributions", 0),
             "totalCommits": contributions.get("totalCommitContributions", 0),
             "totalPRs": contributions.get("totalPullRequestContributions", 0),
             "totalIssues": contributions.get("totalIssueContributions", 0),
             "totalReviews": contributions.get("totalPullRequestReviewContributions", 0),
+            "lastContributionDate": last_contribution_date,
             "repositories": repos
         }

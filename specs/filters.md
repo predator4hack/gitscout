@@ -2,7 +2,7 @@
 
 ## Objective
 
-The objective of this task is to allow user to filter out the candidates based on a few specific criteria(the filter option would be avaialble in the frontend)
+The objective of this task is to allow user to filter out the candidates retrieved based on a few specific criteria(the filter option would be avaialble in the frontend)
 Filters should be allowed based on:
 
 -   location
