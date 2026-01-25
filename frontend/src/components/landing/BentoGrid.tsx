@@ -3,119 +3,158 @@ import { Icon } from '../shared/Icon';
 export function BentoGrid() {
   return (
     <section id="product" className="py-24 border-t border-white/5 bg-[#050505]">
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Feature 1 - Natural Language Search */}
-          <div className="bento-card rounded-xl md:col-span-2 relative overflow-hidden group min-h-[340px] p-8 flex flex-col">
-            <div className="absolute top-0 right-0 p-8 opacity-20 group-hover:opacity-40 transition-opacity duration-500">
-              <Icon
-                icon="solar:code-file-bold-duotone"
-                width={120}
-                className="rotate-12 translate-x-8 -translate-y-8"
-              />
-            </div>
-            <div className="relative z-10 max-w-lg">
-              <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-white mb-6">
-                <Icon icon="solar:chat-line-linear" width={16} />
+      <div className="max-w-7xl mx-auto px-6">
+        {/* Section Header */}
+        <div className="mb-16">
+          <h2 className="text-3xl md:text-4xl font-medium tracking-tight text-white mb-4">
+            Search deeper than the headline.
+          </h2>
+          <p className="text-zinc-400 max-w-xl">
+            Our AI agents read code, not just resumes. We verify actual proficiency by
+            analyzing open source contributions and commit history.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Card 1: Natural Language Search (Large) */}
+          <div className="bento-card rounded-2xl md:col-span-2 relative overflow-hidden group min-h-[320px] flex flex-col justify-between p-8">
+            <div className="shimmer" />
+            <div className="relative z-10">
+              <div className="mb-4 inline-flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-800/50 border border-white/5 text-[#D591FE]">
+                <Icon icon="solar:chat-round-line-linear" width={20} />
               </div>
-              <h3 className="text-lg font-medium text-white mb-3 tracking-tight">
-                Natural Language Search
+              <h3 className="text-xl font-medium text-white mb-2 tracking-tight">
+                Search like a Lead Engineer.
               </h3>
-              <p className="text-sm text-[#888888] font-light leading-relaxed mb-8">
-                Query your candidate database like you talk to a coworker. Our LLM
-                converts semantic requests into complex database filters instantly.
-              </p>
-
-              {/* Mini Code Interface */}
-              <div className="bg-[#0F0F0F] border border-white/5 rounded-lg p-4 font-mono text-[11px] text-[#666] w-full max-w-md shadow-lg">
-                <div className="flex gap-2 mb-2">
-                  <span className="text-blue-400">user &gt;</span>
-                  <span className="text-[#EDEDED]">
-                    Find devs with &gt; 3 years Rust experience
-                  </span>
-                </div>
-                <div className="flex gap-2 opacity-50">
-                  <span className="text-green-400">sys &gt;</span>
-                  <span>Analyzing 14,203 profiles...</span>
-                </div>
-                <div className="flex gap-2 mt-2 pt-2 border-t border-white/5 text-[#EDEDED]">
-                  <span className="text-purple-400">result &gt;</span>
-                  <span>Found 12 candidates matching "Rust" &amp;&amp; "Senior"</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Feature 2 - Velocity Metrics */}
-          <div className="bento-card rounded-xl md:col-span-1 relative overflow-hidden group min-h-[340px] p-8">
-            <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-white mb-6">
-              <Icon icon="solar:graph-up-linear" width={16} />
-            </div>
-            <h3 className="text-lg font-medium text-white mb-3 tracking-tight">
-              Velocity Metrics
-            </h3>
-            <p className="text-sm text-[#888888] font-light leading-relaxed">
-              Measure impact, not hours. We visualize commit velocity and code churn.
-            </p>
-
-            <div className="mt-8 space-y-2">
-              <div className="flex items-center justify-between text-[10px] text-[#666] uppercase tracking-wider font-medium">
-                <span>Commits / Week</span>
-                <span className="text-green-400">+12%</span>
-              </div>
-              <div className="flex items-end gap-1 h-16 border-b border-white/5 pb-2">
-                <div className="w-full bg-white/5 h-[30%] rounded-sm" />
-                <div className="w-full bg-white/5 h-[50%] rounded-sm" />
-                <div className="w-full bg-white/10 h-[40%] rounded-sm" />
-                <div className="w-full bg-white/20 h-[70%] rounded-sm" />
-                <div className="w-full bg-white/40 h-[60%] rounded-sm" />
-                <div className="w-full bg-white h-[80%] rounded-sm shadow-[0_0_15px_rgba(255,255,255,0.3)]" />
-              </div>
-            </div>
-          </div>
-
-          {/* Feature 3 - Team Fit Analysis */}
-          <div className="bento-card rounded-xl md:col-span-1 relative overflow-hidden group min-h-[300px] p-8">
-            <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-white mb-6">
-              <Icon icon="solar:users-group-rounded-linear" width={16} />
-            </div>
-            <h3 className="text-lg font-medium text-white mb-3 tracking-tight">
-              Team Fit Analysis
-            </h3>
-            <p className="text-sm text-[#888888] font-light leading-relaxed">
-              AI agents predict cultural fit based on PR comment sentiment and
-              collaboration patterns.
-            </p>
-          </div>
-
-          {/* Feature 4 - Automated Vetting */}
-          <div className="bento-card rounded-xl md:col-span-2 relative overflow-hidden group min-h-[300px] p-8 flex items-center">
-            <div className="max-w-sm z-10">
-              <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-white mb-6">
-                <Icon icon="solar:shield-check-linear" width={16} />
-              </div>
-              <h3 className="text-lg font-medium text-white mb-3 tracking-tight">
-                Automated Vetting
-              </h3>
-              <p className="text-sm text-[#888888] font-light leading-relaxed">
-                Every profile is pre-scanned for code quality, security practices,
-                and documentation standards before you ever see it.
+              <p className="text-sm text-zinc-400 font-light max-w-md">
+                Stop wrestling with Boolean strings. Ask for what you need:
+                "Find a React developer who understands low-latency architecture."
               </p>
             </div>
-            <div className="hidden md:block absolute right-8 top-1/2 -translate-y-1/2">
-              <div className="flex flex-col gap-3 opacity-50 group-hover:opacity-100 transition-opacity duration-500">
-                <div className="flex items-center gap-3 bg-[#0F0F0F] border border-white/5 px-4 py-2 rounded text-xs text-[#888]">
-                  <Icon icon="solar:check-circle-bold" className="text-green-500" />
-                  <span>Clean Architecture</span>
+
+            {/* UI Visualization */}
+            <div className="mt-8 relative w-full bg-[#16181C] border border-white/5 rounded-lg p-4 font-mono text-xs shadow-lg translate-y-4 group-hover:translate-y-2 transition-transform duration-500">
+              <div className="flex items-center gap-2 mb-3 border-b border-white/5 pb-2">
+                <div className="w-2 h-2 rounded-full bg-red-500/20" />
+                <div className="w-2 h-2 rounded-full bg-yellow-500/20" />
+                <div className="w-2 h-2 rounded-full bg-green-500/20" />
+                <span className="ml-auto text-zinc-600">agent_search.ts</span>
+              </div>
+              <div className="text-zinc-400">
+                <span className="text-purple-400">Query:</span> "High-traffic open source contributor"<br />
+                <span className="text-blue-400">Analyzing:</span> GitHub, GitLab, BitBucket...<br />
+                <span className="text-green-400">Found:</span> 12 candidates matching architecture patterns.
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Commit Level Analysis */}
+          <div className="bento-card rounded-2xl md:col-span-1 relative overflow-hidden group min-h-[320px] flex flex-col p-8">
+            <div className="shimmer" />
+            <div className="mb-auto">
+              <div className="mb-4 inline-flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-800/50 border border-white/5 text-[#00FFD1]">
+                <Icon icon="solar:git-commit-linear" width={20} />
+              </div>
+              <h3 className="text-xl font-medium text-white mb-2 tracking-tight">
+                Commit-Level Analysis
+              </h3>
+              <p className="text-sm text-zinc-400 font-light">
+                The proof is in the repo. We look at logic, commit frequency, and PR
+                complexity.
+              </p>
+            </div>
+
+            {/* Graph Visualization */}
+            <div className="mt-6 flex items-end gap-1 h-24 w-full">
+              <div className="w-full bg-[#1E2125] rounded-sm relative overflow-hidden h-full flex items-end gap-[2px] opacity-70 group-hover:opacity-100 transition-opacity">
+                <div className="w-1.5 h-[30%] bg-zinc-700 rounded-t-sm" />
+                <div className="w-1.5 h-[50%] bg-zinc-700 rounded-t-sm" />
+                <div className="w-1.5 h-[40%] bg-zinc-700 rounded-t-sm" />
+                <div className="w-1.5 h-[80%] bg-green-500/80 rounded-t-sm shadow-[0_0_10px_rgba(34,197,94,0.4)]" />
+                <div className="w-1.5 h-[60%] bg-zinc-700 rounded-t-sm" />
+                <div className="w-1.5 h-[45%] bg-zinc-700 rounded-t-sm" />
+                <div className="w-1.5 h-[90%] bg-green-500/80 rounded-t-sm shadow-[0_0_10px_rgba(34,197,94,0.4)]" />
+                <div className="w-1.5 h-[20%] bg-zinc-700 rounded-t-sm" />
+                <div className="w-1.5 h-[35%] bg-zinc-700 rounded-t-sm" />
+                <div className="w-1.5 h-[75%] bg-green-500/80 rounded-t-sm shadow-[0_0_10px_rgba(34,197,94,0.4)]" />
+                <div className="w-1.5 h-[50%] bg-zinc-700 rounded-t-sm" />
+                <div className="w-1.5 h-[40%] bg-zinc-700 rounded-t-sm" />
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Multi-Agent Ranking */}
+          <div className="bento-card rounded-2xl md:col-span-1 relative overflow-hidden group min-h-[320px] flex flex-col p-8">
+            <div className="shimmer" />
+            <div className="mb-6">
+              <div className="mb-4 inline-flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-800/50 border border-white/5 text-blue-400">
+                <Icon icon="solar:users-group-rounded-linear" width={20} />
+              </div>
+              <h3 className="text-xl font-medium text-white mb-2 tracking-tight">
+                Multi-Agent Ranking
+              </h3>
+              <p className="text-sm text-zinc-400 font-light">
+                An AI-powered technical interview—before the first call. Agents
+                debate candidate quality.
+              </p>
+            </div>
+
+            {/* Agents Visual */}
+            <div className="mt-auto flex flex-col gap-3">
+              <div className="flex items-center gap-3 bg-[#16181C] p-2 rounded-lg border border-white/5">
+                <div className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-[10px] text-indigo-400">
+                  A1
                 </div>
-                <div className="flex items-center gap-3 bg-[#0F0F0F] border border-white/5 px-4 py-2 rounded text-xs text-[#888]">
-                  <Icon icon="solar:check-circle-bold" className="text-green-500" />
-                  <span>High Test Coverage</span>
+                <div className="h-1.5 w-16 bg-zinc-800 rounded-full" />
+                <div className="ml-auto text-[10px] text-green-400 font-mono">98/100</div>
+              </div>
+              <div className="flex items-center gap-3 bg-[#16181C] p-2 rounded-lg border border-white/5">
+                <div className="w-6 h-6 rounded-full bg-rose-500/20 flex items-center justify-center text-[10px] text-rose-400">
+                  A2
                 </div>
-                <div className="flex items-center gap-3 bg-[#0F0F0F] border border-white/5 px-4 py-2 rounded text-xs text-[#888]">
-                  <Icon icon="solar:check-circle-bold" className="text-green-500" />
-                  <span>Consistent Styling</span>
+                <div className="h-1.5 w-24 bg-zinc-800 rounded-full" />
+                <div className="ml-auto text-[10px] text-yellow-400 font-mono">84/100</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 4: Email Drafts */}
+          <div className="bento-card rounded-2xl md:col-span-2 relative overflow-hidden group min-h-[320px] flex flex-col md:flex-row items-center p-0">
+            <div className="shimmer" />
+            <div className="p-8 md:w-1/2 z-10">
+              <div className="mb-4 inline-flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-800/50 border border-white/5 text-orange-400">
+                <Icon icon="solar:letter-linear" width={20} />
+              </div>
+              <h3 className="text-xl font-medium text-white mb-2 tracking-tight">
+                Draft &amp; Send Emails
+              </h3>
+              <p className="text-sm text-zinc-400 font-light">
+                Avoid the "spam" folder. GitScout drafts hyper-personalized emails
+                referencing specific code contributions.
+              </p>
+            </div>
+
+            <div className="md:w-1/2 h-full bg-[#16181C] border-l border-white/5 p-6 flex flex-col justify-center relative">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <Icon icon="solar:plain-bold" width={60} />
+              </div>
+              <div className="space-y-3 font-mono text-[10px] text-zinc-400">
+                <div className="flex gap-2">
+                  <span className="text-zinc-600">To:</span>
+                  <span>alex.dev@gmail.com</span>
                 </div>
+                <div className="flex gap-2">
+                  <span className="text-zinc-600">Subject:</span>
+                  <span className="text-white">Regarding your contribution to React 18...</span>
+                </div>
+                <div className="h-px w-full bg-white/5 my-2" />
+                <p className="leading-relaxed opacity-70">
+                  Hi Alex,<br /><br />
+                  I noticed your recent commit optimizing the concurrent renderer. We're solving a similar race condition at GitScout...
+                </p>
+                <button className="mt-4 bg-white text-black px-3 py-1.5 rounded text-xs font-semibold w-fit">
+                  Send via Gmail
+                </button>
               </div>
             </div>
           </div>
