@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { CandidateFilters, LastContributionPeriod } from "../types";
+import { CandidateFilters, LastContributionPeriod } from "../../types";
 
 interface FilterPanelProps {
     filters: CandidateFilters;

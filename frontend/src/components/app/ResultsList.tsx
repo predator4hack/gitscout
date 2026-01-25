@@ -1,6 +1,6 @@
-import { Candidate } from '../types';
+import { Candidate } from '../../types';
 import { CandidateCard } from './CandidateCard';
-import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import { useInfiniteScroll } from '../../hooks/useInfiniteScroll';
 
 interface ResultsListProps {
   candidates: Candidate[];

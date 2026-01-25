@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Provider, SearchRequest } from '../types';
+import { Provider, SearchRequest } from '../../types';
 
 interface SearchFormProps {
   onSearch: (request: SearchRequest) => void;

@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS Variables from original HTML */
+:root {
+  --bg-body: #030303;
+  --bg-card: #0a0a0a;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --text-main: #ededed;
+  --text-muted: #888888;
+  --accent-glow: rgba(255, 255, 255, 0.08);
+}
+
+/* Base body styles */
+body {
+  background-color: var(--bg-body);
+  font-family: "Inter", sans-serif;
+  color: var(--text-main);
+  background-image: radial-gradient(
+    circle at 50% 0%,
+    rgba(255, 255, 255, 0.03) 0%,
+    transparent 40%
+  );
+}
+
+/* Mono font */
+.font-mono {
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* Glass Navigation */
+.nav-glass {
+  background: rgba(3, 3, 3, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Bento Card */
+.bento-card {
+  background: linear-gradient(
+    180deg,
+    rgba(20, 20, 20, 0.6) 0%,
+    rgba(10, 10, 10, 0.4) 100%
+  );
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+  transition: border-color 0.3s ease;
+}
+
+.bento-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Sweep Animation for Accordion */
+@keyframes sweep {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-sweep {
+  animation: sweep 0.3s ease-in-out;
+}
+
+/* Noise Overlay */
+.noise {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
