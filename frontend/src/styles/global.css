@@ -267,3 +267,43 @@ body {
   background: var(--accent-glow);
   color: var(--text-main);
 }
+
+/* ===== Processing Page Styles ===== */
+
+/* Processing Loader - Block Animation */
+.processing-loader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.loader-row {
+  display: flex;
+  gap: 6px;
+}
+
+.loader-block {
+  width: 16px;
+  height: 16px;
+  background: #444444;
+  animation: blockPulse 1.5s ease-in-out infinite;
+}
+
+/* Staggered animation delays for each block */
+.loader-block-1 { animation-delay: 0s; }
+.loader-block-2 { animation-delay: 0.15s; }
+.loader-block-3 { animation-delay: 0.3s; }
+.loader-block-4 { animation-delay: 0.45s; }
+.loader-block-5 { animation-delay: 0.6s; }
+.loader-block-6 { animation-delay: 0.75s; }
+
+@keyframes blockPulse {
+  0%, 100% {
+    background: #333333;
+    transform: scale(1);
+  }
+  50% {
+    background: #ededed;
+    transform: scale(1.05);
+  }
+}
