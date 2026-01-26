@@ -108,3 +108,162 @@ body {
   opacity: 0.03;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }
+
+/* ===== Dashboard Styles ===== */
+
+/* Dashboard Custom Scrollbar */
+.dashboard-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dashboard-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dashboard-scrollbar::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+.dashboard-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Dashboard Table Row Hover */
+.dashboard-row-hover:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Shimmer Text Animation */
+.shimmer-text {
+  background: linear-gradient(to right, #ffffff 20%, #71717a 50%, #ffffff 80%);
+  background-size: 200% auto;
+  color: #000;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shine 3s linear infinite;
+}
+
+@keyframes shine {
+  to {
+    background-position: 200% center;
+  }
+}
+
+/* Repository Chip */
+.repo-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+}
+
+.repo-chip-overflow {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.repo-chip-overflow:hover {
+  color: var(--text-main);
+}
+
+/* Action Buttons */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  width: 96px;
+  transition: all 150ms ease;
+}
+
+.action-btn-blue {
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+}
+
+.action-btn-blue:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.action-btn-yellow {
+  border: 1px solid rgba(202, 138, 4, 0.3);
+  color: #eab308;
+}
+
+.action-btn-yellow:hover {
+  background: rgba(234, 179, 8, 0.1);
+}
+
+.action-btn-gray {
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.action-btn-gray:hover {
+  background: var(--accent-glow);
+}
+
+/* Step Indicator Chip */
+.step-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+}
+
+.step-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(249, 115, 22, 0.5);
+}
+
+/* Chat Message Styles */
+.chat-user-message {
+  background: white;
+  color: black;
+  border-radius: 16px 16px 4px 16px;
+}
+
+.chat-ai-message {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px 16px 16px 16px;
+}
+
+/* Suggestion Chip */
+.suggestion-chip {
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 150ms ease;
+}
+
+.suggestion-chip:hover {
+  background: var(--accent-glow);
+  color: var(--text-main);
+}

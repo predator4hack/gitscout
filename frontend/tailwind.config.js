@@ -14,6 +14,11 @@ export default {
         'gs-text-muted': '#888888',
         'gs-text-dim': '#666666',
         'gs-text-darker': '#444444',
+        // Accent colors
+        'gs-purple': '#D591FE',
+        'gs-blue': '#3B82F6',
+        'gs-yellow': '#EAB308',
+        'gs-cyan': '#00FFD1',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
