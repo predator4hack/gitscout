@@ -37,6 +37,10 @@ export function DashboardPage() {
     setIsSidebarOpen(false);
   }, []);
 
+  const handleToggleSidebar = useCallback(() => {
+    setIsSidebarOpen((prev) => !prev);
+  }, []);
+
   return (
     <DashboardLayout
       isSidebarOpen={isSidebarOpen}
@@ -48,7 +52,7 @@ export function DashboardPage() {
         />
       }
     >
-      <DashboardToolbar queryTitle={MOCK_QUERY_TITLE} />
+      <DashboardToolbar queryTitle={MOCK_QUERY_TITLE} onHelpClick={handleToggleSidebar} />
       <CandidateTable
         candidates={candidates}
         columns={TABLE_COLUMNS}

@@ -105,6 +105,11 @@ export function TableRow({ candidate, onStarToggle }: TableRowProps) {
       <td className="py-4 px-4 align-top text-right pr-6 font-mono text-gs-text-muted">
         {candidate.followers.toLocaleString()}
       </td>
+
+      {/* Score Cell */}
+      <td className="py-4 px-4 align-top text-right pr-6 font-mono text-gs-text-muted">
+        {candidate.score}
+      </td>
     </tr>
   );
 }

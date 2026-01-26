@@ -4,9 +4,10 @@ import { ToolbarActions } from './ToolbarActions';
 
 interface DashboardToolbarProps {
   queryTitle: string;
+  onHelpClick: () => void;
 }
 
-export function DashboardToolbar({ queryTitle }: DashboardToolbarProps) {
+export function DashboardToolbar({ queryTitle, onHelpClick }: DashboardToolbarProps) {
   return (
     <header className="h-14 flex items-center justify-between px-6 border-b border-white/[0.06] flex-shrink-0 bg-gs-body">
       <div className="flex items-center gap-4 min-w-0">
@@ -32,7 +33,7 @@ export function DashboardToolbar({ queryTitle }: DashboardToolbarProps) {
         </button>
       </div>
 
-      <ToolbarActions />
+      <ToolbarActions onHelpClick={onHelpClick} />
     </header>
   );
 }

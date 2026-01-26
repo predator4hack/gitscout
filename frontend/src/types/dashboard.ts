@@ -15,6 +15,7 @@ export interface DashboardCandidate {
   location: string | null;
   description: string;
   followers: number;
+  score: number;
   isStarred: boolean;
   hasEmail: boolean;
   linkedInUrl: string | null;
@@ -54,7 +55,8 @@ export type ColumnKey =
   | 'actions'
   | 'location'
   | 'description'
-  | 'followers';
+  | 'followers'
+  | 'score';
 
 export interface TableColumn {
   key: ColumnKey;
