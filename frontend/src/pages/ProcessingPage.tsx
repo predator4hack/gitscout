@@ -43,23 +43,37 @@ export function ProcessingPage() {
 
   // Redirect to dashboard when complete
   useEffect(() => {
+    console.log('[ProcessingPage] Effect check - isComplete:', isComplete, 'sessionId:', sessionId);
     if (isComplete && sessionId) {
+      console.log('[ProcessingPage] Redirecting to dashboard with sessionId:', sessionId);
       setSearchResults(sessionId, '', totalFound);
       // Small delay to show 100% completion
-      const timer = setTimeout(() => navigate('/dashboard'), 800);
+      const timer = setTimeout(() => {
+        console.log('[ProcessingPage] Navigating to /dashboard now');
+        navigate('/dashboard');
+      }, 800);
       return () => clearTimeout(timer);
     }
   }, [isComplete, sessionId, totalFound, navigate, setSearchResults]);
 
   // Compute steps based on current step from SSE
   const steps: ProcessingStep[] = useMemo(() => {
+    // When complete, mark all steps as complete
+    if (isComplete) {
+      return STEP_IDS.map((stepId) => ({
+        id: stepId,
+        label: STEP_LABELS[stepId],
+        status: 'complete' as const,
+      }));
+    }
+
     const currentIndex = STEP_INDEX[currentStep];
     return STEP_IDS.map((stepId, index) => ({
       id: stepId,
       label: STEP_LABELS[stepId],
       status: index < currentIndex ? 'complete' : index === currentIndex ? 'active' : 'pending',
     }));
-  }, [currentStep]);
+  }, [currentStep, isComplete]);
 
   // Error state
   if (error) {

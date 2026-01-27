@@ -76,6 +76,7 @@ export function useSearchSSE(jobDescription: string, provider: string = config.d
                   message: data.message,
                 }));
               } else if (data.event === 'complete') {
+                console.log('[SSE] Complete event received:', data);
                 setState(prev => ({
                   ...prev,
                   progress: 100,
@@ -84,6 +85,7 @@ export function useSearchSSE(jobDescription: string, provider: string = config.d
                   isComplete: true,
                   message: 'Search complete!',
                 }));
+                console.log('[SSE] State updated with isComplete=true, sessionId=', data.sessionId);
               } else if (data.event === 'error') {
                 setState(prev => ({
                   ...prev,

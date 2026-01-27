@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 
 interface SearchState {
   jobDescription: string;
@@ -26,20 +26,27 @@ const SearchContext = createContext<SearchContextType | null>(null);
 export function SearchProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<SearchState>(initialState);
 
-  const setJobDescription = (jd: string) => {
+  const setJobDescription = useCallback((jd: string) => {
     setState(prev => ({ ...prev, jobDescription: jd }));
-  };
+  }, []);
 
-  const setSearchResults = (sessionId: string, query: string, totalFound: number) => {
+  const setSearchResults = useCallback((sessionId: string, query: string, totalFound: number) => {
     setState(prev => ({ ...prev, sessionId, query, totalFound }));
-  };
+  }, []);
 
-  const clearSearch = () => {
+  const clearSearch = useCallback(() => {
     setState(initialState);
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    state,
+    setJobDescription,
+    setSearchResults,
+    clearSearch,
+  }), [state, setJobDescription, setSearchResults, clearSearch]);
 
   return (
-    <SearchContext.Provider value={{ state, setJobDescription, setSearchResults, clearSearch }}>
+    <SearchContext.Provider value={value}>
       {children}
     </SearchContext.Provider>
   );
