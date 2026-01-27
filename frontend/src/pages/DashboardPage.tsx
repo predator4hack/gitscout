@@ -17,7 +17,7 @@ import type { DashboardCandidate, PaginationState } from '../types/dashboard';
 export function DashboardPage() {
   const navigate = useNavigate();
   const { state: searchState } = useSearch();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [candidates, setCandidates] = useState<DashboardCandidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,6 +96,37 @@ export function DashboardPage() {
     setIsSidebarOpen((prev) => !prev);
   }, []);
 
+  const handleExportCSV = useCallback(() => {
+    if (candidates.length === 0) return;
+
+    const headers = ['Username', 'Name', 'Email', 'Location', 'Followers', 'Score', 'Repositories', 'LinkedIn', 'Twitter', 'Website'];
+    const rows = candidates.map((c) => [
+      c.login,
+      c.name || '',
+      c.email || '',
+      c.location || '',
+      c.followers.toString(),
+      c.score.toString(),
+      c.repositories.map((r) => r.name).join('; '),
+      c.linkedInUrl || '',
+      c.twitterUsername || '',
+      c.websiteUrl || '',
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'candidates.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [candidates]);
+
   // Generate query title from job description or use fallback
   const queryTitle = searchState.jobDescription
     ? searchState.jobDescription.slice(0, 50) + (searchState.jobDescription.length > 50 ? '...' : '')
@@ -130,7 +161,7 @@ export function DashboardPage() {
         />
       }
     >
-      <DashboardToolbar queryTitle={queryTitle} onHelpClick={handleToggleSidebar} />
+      <DashboardToolbar queryTitle={queryTitle} onHelpClick={handleToggleSidebar} onExportClick={handleExportCSV} />
       {isLoading && candidates.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-gs-text-muted">Loading candidates...</p>

@@ -17,7 +17,7 @@ export function DashboardNavigation() {
       {/* Right: Actions */}
       <div className="flex items-center gap-4 text-[13px] font-medium">
         <Link
-          to="/app"
+          to="/"
           className="text-gs-text-muted hover:text-white flex items-center gap-1.5 transition-colors duration-200"
         >
           <Icon icon="lucide:search" className="w-4 h-4" />
