@@ -3,6 +3,7 @@ import logging
 from typing import List, Dict, Any, Tuple
 from collections import defaultdict
 from ...models.jd_spec import GitScoutJDSpec
+from ...config import config
 from ..github.client import GitHubClient
 
 logger = logging.getLogger("gitscout.pipeline")
@@ -46,7 +47,7 @@ async def run_repo_contributors_pipeline(
 
     for query in queries:
         try:
-            results = await github_client.search_repos(query, limit=50)
+            results = await github_client.search_repos(query, limit=config.REPOS_PER_QUERY)
             for node in results.get("nodes", []):
                 if node:
                     parsed = github_client.parse_repo_data(node)
@@ -117,7 +118,7 @@ async def run_repo_contributors_pipeline(
         contributor_scores.items(),
         key=lambda x: x[1],
         reverse=True
-    )[:50]  # Top 50 contributors
+    )[:config.TOP_CONTRIBUTORS]
 
     top_node_ids = [
         contributor_node_ids[login]

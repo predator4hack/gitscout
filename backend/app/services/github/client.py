@@ -5,6 +5,7 @@ import httpx
 import asyncio
 from typing import List, Dict, Any, Optional, Callable, TypeVar, Awaitable
 from .queries import SEARCH_USERS_QUERY, SEARCH_REPOS_QUERY, HYDRATE_USERS_QUERY
+from ...config import config
 
 logger = logging.getLogger("gitscout.github")
 
@@ -233,7 +234,7 @@ class GitHubClient:
         self,
         repos: List[Dict[str, str]],
         per_page: int = 10,
-        max_concurrent: int = 5
+        max_concurrent: Optional[int] = None
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Fetch contributors for multiple repos concurrently
@@ -246,6 +247,8 @@ class GitHubClient:
         Returns:
             Dict mapping nameWithOwner to list of contributors
         """
+        if max_concurrent is None:
+            max_concurrent = config.MAX_CONCURRENT_REQUESTS
         logger.info(f"Fetching contributors for {len(repos)} repos (concurrency: {max_concurrent})")
 
         semaphore = asyncio.Semaphore(max_concurrent)
@@ -278,7 +281,7 @@ class GitHubClient:
         logger.info(f"Fetched {total_contributors} total contributors from {len(repos)} repos ({errors_count} errors)")
         return contributors_by_repo
 
-    async def hydrate_users(self, node_ids: List[str], batch_size: int = 5) -> List[Dict[str, Any]]:
+    async def hydrate_users(self, node_ids: List[str], batch_size: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Batch fetch user details using node IDs
 
@@ -289,6 +292,8 @@ class GitHubClient:
         Returns:
             List of user data dictionaries
         """
+        if batch_size is None:
+            batch_size = config.HYDRATE_BATCH_SIZE
         logger.info(f"Hydrating {len(node_ids)} users in batches of {batch_size}")
 
         headers = {

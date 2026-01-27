@@ -4,11 +4,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+
+# Load environment variables BEFORE importing modules that use config
+load_dotenv()
+
 from .api.routes import router
 from .services.cache.search_cache import get_search_cache
-
-# Load environment variables
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(

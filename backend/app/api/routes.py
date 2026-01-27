@@ -3,6 +3,7 @@ import json
 from typing import Optional, AsyncGenerator, Callable, Awaitable
 from fastapi import APIRouter, HTTPException, Query
 from starlette.responses import StreamingResponse
+from ..config import config
 from ..models.requests import SearchRequest, CandidateFilters
 from ..models.responses import SearchResponse, PaginatedSearchResponse
 from ..services.github.client import GitHubClient
@@ -114,8 +115,8 @@ async def search_via_repos(request: SearchRequest):
             spec=spec,
             queries=queries,
             github_client=github_client,
-            max_repos=10,
-            contributors_per_repo=10
+            max_repos=config.MAX_REPOS,
+            contributors_per_repo=config.CONTRIBUTORS_PER_REPO
         )
 
         # 4. Parse user data and incorporate contribution scores
