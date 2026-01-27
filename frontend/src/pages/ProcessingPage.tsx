@@ -1,75 +1,101 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '../components/shared/Icon';
 import { NoiseOverlay } from '../components/landing/NoiseOverlay';
 import { ProcessingLoader } from '../components/processing/ProcessingLoader';
 import { ProgressBar } from '../components/processing/ProgressBar';
 import { StepIndicator, ProcessingStep } from '../components/processing/StepIndicator';
+import { useSearch } from '../context/SearchContext';
+import { useSearchSSE, SearchStep } from '../hooks/useSearchSSE';
+import { config } from '../config';
 
-const INITIAL_STEPS: ProcessingStep[] = [
-  { id: 'analyze', label: 'Analyzing job description', status: 'pending' },
-  { id: 'search', label: 'Searching repositories', status: 'pending' },
-  { id: 'rank', label: 'Ranking candidates', status: 'pending' },
-  { id: 'prepare', label: 'Preparing results', status: 'pending' },
-];
+const STEP_IDS: SearchStep[] = ['analyze', 'search', 'rank', 'prepare'];
 
-const STATUS_MESSAGES = [
-  'Setting up environment...',
-  'Parsing requirements...',
-  'Querying GitHub API...',
-  'Analyzing code patterns...',
-  'Evaluating contributions...',
-  'Calculating match scores...',
-  'Finalizing results...',
-];
+const STEP_LABELS: Record<SearchStep, string> = {
+  analyze: 'Analyzing job description',
+  search: 'Searching repositories',
+  rank: 'Ranking candidates',
+  prepare: 'Preparing results',
+};
+
+// Map step to its index for comparison
+const STEP_INDEX: Record<SearchStep, number> = {
+  analyze: 0,
+  search: 1,
+  rank: 2,
+  prepare: 3,
+};
 
 export function ProcessingPage() {
-  const [progress, setProgress] = useState(0);
-  const [steps, setSteps] = useState<ProcessingStep[]>(INITIAL_STEPS);
-  const [statusMessage, setStatusMessage] = useState(STATUS_MESSAGES[0]);
+  const navigate = useNavigate();
+  const { state: searchState, setSearchResults } = useSearch();
+  const { progress, currentStep, message, sessionId, totalFound, error, isComplete } = useSearchSSE(
+    searchState.jobDescription,
+    config.defaultLLMProvider
+  );
 
+  // Redirect to home if no job description
   useEffect(() => {
-    // Mock progress simulation
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(progressInterval);
-          return 100;
-        }
-        return prev + 1;
-      });
-    }, 100); // ~10 seconds to complete
+    if (!searchState.jobDescription) {
+      navigate('/');
+    }
+  }, [searchState.jobDescription, navigate]);
 
-    return () => clearInterval(progressInterval);
-  }, []);
-
-  // Update steps based on progress
+  // Redirect to dashboard when complete
   useEffect(() => {
-    const stepThresholds = [0, 25, 50, 75];
+    if (isComplete && sessionId) {
+      setSearchResults(sessionId, '', totalFound);
+      // Small delay to show 100% completion
+      const timer = setTimeout(() => navigate('/dashboard'), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [isComplete, sessionId, totalFound, navigate, setSearchResults]);
 
-    setSteps((prevSteps) =>
-      prevSteps.map((step, index) => {
-        const threshold = stepThresholds[index];
-        const nextThreshold = stepThresholds[index + 1] ?? 100;
+  // Compute steps based on current step from SSE
+  const steps: ProcessingStep[] = useMemo(() => {
+    const currentIndex = STEP_INDEX[currentStep];
+    return STEP_IDS.map((stepId, index) => ({
+      id: stepId,
+      label: STEP_LABELS[stepId],
+      status: index < currentIndex ? 'complete' : index === currentIndex ? 'active' : 'pending',
+    }));
+  }, [currentStep]);
 
-        if (progress >= nextThreshold) {
-          return { ...step, status: 'complete' };
-        } else if (progress >= threshold) {
-          return { ...step, status: 'active' };
-        }
-        return { ...step, status: 'pending' };
-      })
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gs-body">
+        <NoiseOverlay />
+        <nav className="fixed top-0 w-full z-50 nav-glass">
+          <div className="max-w-6xl mx-auto px-6 h-14 flex items-center">
+            <Link to="/" className="flex items-center gap-2 group">
+              <div className="w-6 h-6 rounded flex items-center justify-center bg-white text-black">
+                <Icon icon="solar:code-scan-bold" className="text-sm" />
+              </div>
+              <span className="font-medium tracking-tight text-sm text-white/90">
+                GitScout
+              </span>
+            </Link>
+          </div>
+        </nav>
+        <main className="flex-1 flex items-center justify-center pt-14">
+          <div className="flex flex-col items-center gap-6 text-center px-6">
+            <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center">
+              <Icon icon="lucide:alert-circle" className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-xl font-medium text-white">Something went wrong</h2>
+            <p className="text-[#888888] max-w-md">{error}</p>
+            <button
+              onClick={() => navigate('/')}
+              className="mt-4 px-4 py-2 bg-white text-black text-sm font-medium rounded-lg hover:bg-white/90 transition-colors"
+            >
+              Try again
+            </button>
+          </div>
+        </main>
+      </div>
     );
-  }, [progress]);
-
-  // Update status message based on progress
-  useEffect(() => {
-    const messageIndex = Math.min(
-      Math.floor(progress / (100 / STATUS_MESSAGES.length)),
-      STATUS_MESSAGES.length - 1
-    );
-    setStatusMessage(STATUS_MESSAGES[messageIndex]);
-  }, [progress]);
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gs-body">
@@ -96,7 +122,7 @@ export function ProcessingPage() {
           <ProcessingLoader />
 
           {/* Progress Bar */}
-          <ProgressBar progress={progress} status={statusMessage} />
+          <ProgressBar progress={progress} status={message} />
 
           {/* Step Indicators */}
           <StepIndicator steps={steps} />

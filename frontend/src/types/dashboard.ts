@@ -17,8 +17,11 @@ export interface DashboardCandidate {
   followers: number;
   score: number;
   isStarred: boolean;
-  hasEmail: boolean;
+  // Contact fields - aligned with API Candidate type
+  email: string | null;
   linkedInUrl: string | null;
+  twitterUsername: string | null;
+  websiteUrl: string | null;
 }
 
 export interface StepIndicator {

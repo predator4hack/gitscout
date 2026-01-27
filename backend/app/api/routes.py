@@ -1,6 +1,8 @@
 import logging
-from typing import Optional
+import json
+from typing import Optional, AsyncGenerator, Callable, Awaitable
 from fastapi import APIRouter, HTTPException, Query
+from starlette.responses import StreamingResponse
 from ..models.requests import SearchRequest, CandidateFilters
 from ..models.responses import SearchResponse, PaginatedSearchResponse
 from ..services.github.client import GitHubClient
@@ -9,6 +11,9 @@ from ..services.matching.repo_pipeline import run_repo_contributors_pipeline
 from ..services.matching.ranker import rank_candidates
 from ..services.cache.search_cache import get_search_cache
 from ..services.filtering.candidate_filter import filter_candidates
+
+# Type alias for progress callback
+ProgressCallback = Callable[[str, int, str], Awaitable[None]]
 
 logger = logging.getLogger("gitscout.api")
 
@@ -230,4 +235,106 @@ async def get_search_page(
         page=page,
         pageSize=page_size,
         hasMore=has_more
+    )
+
+
+@router.post("/search/repos/stream")
+async def search_via_repos_stream(request: SearchRequest):
+    """
+    SSE streaming endpoint for search with real-time progress updates.
+
+    Streams progress events during the search pipeline:
+    - step: {event: "step", step: string, progress: number, message: string}
+    - complete: {event: "complete", sessionId: string, totalFound: number}
+    - error: {event: "error", message: string}
+    """
+    logger.info(f"POST /search/repos/stream - provider: {request.provider.value}, model: {request.model}")
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        try:
+            # Step 1: Analyzing job description (0-15%)
+            yield f"data: {json.dumps({'event': 'step', 'step': 'analyze', 'progress': 5, 'message': 'Analyzing job description...'})}\n\n"
+
+            spec = await generate_jd_spec(
+                jd_text=request.jd_text,
+                provider=request.provider.value,
+                model=request.model
+            )
+            yield f"data: {json.dumps({'event': 'step', 'step': 'analyze', 'progress': 15, 'message': 'Job requirements extracted'})}\n\n"
+
+            # Step 2: Generating search queries (15-25%)
+            yield f"data: {json.dumps({'event': 'step', 'step': 'search', 'progress': 20, 'message': 'Generating search queries...'})}\n\n"
+
+            queries = generate_repo_queries(spec)
+            if not queries:
+                yield f"data: {json.dumps({'event': 'error', 'message': 'Could not generate search queries from job description'})}\n\n"
+                return
+
+            yield f"data: {json.dumps({'event': 'step', 'step': 'search', 'progress': 25, 'message': f'Generated {len(queries)} search queries'})}\n\n"
+
+            # Step 3: Searching repositories (25-50%)
+            yield f"data: {json.dumps({'event': 'step', 'step': 'search', 'progress': 30, 'message': 'Searching GitHub repositories...'})}\n\n"
+
+            github_client = GitHubClient()
+
+            # Run the pipeline with progress updates
+            yield f"data: {json.dumps({'event': 'step', 'step': 'search', 'progress': 40, 'message': 'Discovering relevant repositories...'})}\n\n"
+
+            enriched_users, contrib_scores = await run_repo_contributors_pipeline(
+                spec=spec,
+                queries=queries,
+                github_client=github_client,
+                max_repos=10,
+                contributors_per_repo=10
+            )
+
+            yield f"data: {json.dumps({'event': 'step', 'step': 'search', 'progress': 50, 'message': f'Found {len(enriched_users)} potential candidates'})}\n\n"
+
+            # Step 4: Ranking candidates (50-85%)
+            yield f"data: {json.dumps({'event': 'step', 'step': 'rank', 'progress': 60, 'message': 'Analyzing candidate profiles...'})}\n\n"
+
+            users = []
+            for user_node in enriched_users:
+                if user_node:
+                    user_data = github_client.parse_user_data(user_node)
+                    login = user_data.get("login", "")
+                    user_data["contrib_score_seed"] = contrib_scores.get(login, 0)
+                    users.append(user_data)
+
+            yield f"data: {json.dumps({'event': 'step', 'step': 'rank', 'progress': 75, 'message': 'Calculating match scores...'})}\n\n"
+
+            candidates = rank_candidates(users, request.jd_text)
+
+            yield f"data: {json.dumps({'event': 'step', 'step': 'rank', 'progress': 85, 'message': f'Ranked {len(candidates)} candidates'})}\n\n"
+
+            # Step 5: Preparing results (85-100%)
+            yield f"data: {json.dumps({'event': 'step', 'step': 'prepare', 'progress': 90, 'message': 'Preparing results...'})}\n\n"
+
+            cache = get_search_cache()
+            query_str = "; ".join(queries[:3])
+            session_id = cache.create_session(
+                candidates=candidates,
+                query=query_str,
+                total_found=len(candidates)
+            )
+
+            yield f"data: {json.dumps({'event': 'step', 'step': 'prepare', 'progress': 95, 'message': 'Results cached'})}\n\n"
+
+            # Complete
+            yield f"data: {json.dumps({'event': 'complete', 'sessionId': session_id, 'totalFound': len(candidates)})}\n\n"
+
+            logger.info(f"POST /search/repos/stream complete - session {session_id[:8]}... with {len(candidates)} candidates")
+
+        except Exception as e:
+            logger.error(f"POST /search/repos/stream error: {e}", exc_info=True)
+            yield f"data: {json.dumps({'event': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
     )

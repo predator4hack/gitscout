@@ -1,6 +1,29 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Icon } from "../shared/Icon";
+import { useSearch } from "../../context/SearchContext";
 
 export function Hero() {
+    const [inputValue, setInputValue] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const navigate = useNavigate();
+    const { setJobDescription } = useSearch();
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!inputValue.trim() || isSubmitting) return;
+
+        setIsSubmitting(true);
+        setJobDescription(inputValue.trim());
+        navigate("/processing");
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            handleSubmit(e);
+        }
+    };
+
     return (
         <main className="flex-grow pt-32 pb-20 relative">
             <div className="max-w-6xl mx-auto px-6 flex flex-col items-center text-center">
@@ -25,8 +48,8 @@ export function Hero() {
                     to find engineers who actually write the code you need.
                 </p>
 
-                {/* Search UI Mock */}
-                <div className="w-full max-w-2xl relative group mb-20">
+                {/* Search UI - Now Functional */}
+                <form onSubmit={handleSubmit} className="w-full max-w-2xl relative group mb-20">
                     <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition duration-700" />
                     <div className="relative bg-[#0A0A0A] rounded-xl border border-white/10 p-1.5 flex items-center shadow-2xl ring-1 ring-white/5">
                         <div className="pl-3 pr-2 text-[#444444]">
@@ -34,17 +57,22 @@ export function Hero() {
                         </div>
                         <input
                             type="text"
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            onKeyDown={handleKeyDown}
                             className="w-full bg-transparent border-none outline-none text-[13px] text-white placeholder-[#444444] h-9 font-mono"
                             placeholder='Try "Find a React dev who contributes to high-traffic open-source projects..."'
-                            readOnly
+                            disabled={isSubmitting}
                         />
-                        <div className="hidden sm:flex items-center gap-1 pr-2">
-                            <span className="text-[10px] text-[#444444] border border-[#333] rounded px-1.5 py-0.5">
-                                ⌘ K
-                            </span>
-                        </div>
+                        <button
+                            type="submit"
+                            disabled={!inputValue.trim() || isSubmitting}
+                            className="mr-1 px-3 py-1.5 bg-white text-black text-[12px] font-medium rounded-lg hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isSubmitting ? "Starting..." : "Search"}
+                        </button>
                     </div>
-                </div>
+                </form>
 
                 {/* Trusted Logos */}
                 <div className="w-full border-t border-white/5 pt-12">

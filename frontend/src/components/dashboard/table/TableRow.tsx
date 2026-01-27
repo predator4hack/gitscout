@@ -64,20 +64,25 @@ export function TableRow({ candidate, onStarToggle }: TableRowProps) {
         </div>
       </td>
 
-      {/* Actions Cell */}
+      {/* Actions Cell - Contact Links with Priority: Email > LinkedIn > Twitter */}
       <td className="py-4 px-4 align-top">
         <div className="flex flex-col gap-2 items-start">
-          {candidate.hasEmail && (
-            <button className="action-btn action-btn-blue">
+          {/* Priority 1: Email - show "Reach out" if available, otherwise "Find email" */}
+          {candidate.email ? (
+            <a
+              href={`mailto:${candidate.email}`}
+              className="action-btn action-btn-blue"
+            >
               <Icon icon="lucide:mail" className="w-3 h-3" />
               Reach out
-            </button>
-          )}
-          {!candidate.hasEmail && (
+            </a>
+          ) : (
             <button className="action-btn action-btn-yellow">
               Find email
             </button>
           )}
+
+          {/* Priority 2: LinkedIn */}
           {candidate.linkedInUrl && (
             <a
               href={candidate.linkedInUrl}
@@ -85,7 +90,34 @@ export function TableRow({ candidate, onStarToggle }: TableRowProps) {
               rel="noopener noreferrer"
               className="action-btn action-btn-gray"
             >
+              <Icon icon="lucide:linkedin" className="w-3 h-3" />
               LinkedIn
+            </a>
+          )}
+
+          {/* Priority 3: Twitter (only show if no LinkedIn) */}
+          {candidate.twitterUsername && !candidate.linkedInUrl && (
+            <a
+              href={`https://twitter.com/${candidate.twitterUsername}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="action-btn action-btn-gray"
+            >
+              <Icon icon="lucide:twitter" className="w-3 h-3" />
+              Twitter
+            </a>
+          )}
+
+          {/* Website link (only if not already used as LinkedIn) */}
+          {candidate.websiteUrl && !candidate.linkedInUrl && (
+            <a
+              href={candidate.websiteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="action-btn action-btn-gray"
+            >
+              <Icon icon="lucide:globe" className="w-3 h-3" />
+              Website
             </a>
           )}
         </div>

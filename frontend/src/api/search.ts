@@ -1,12 +1,10 @@
 import { SearchRequest, SearchResponse, CandidateFilters } from "../types";
-
-const API_BASE_URL =
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+import { config } from "../config";
 
 export async function searchCandidates(
     request: SearchRequest
 ): Promise<SearchResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/search/repos`, {
+    const response = await fetch(`${config.apiBaseUrl}/api/search/repos`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -52,7 +50,7 @@ export async function fetchSearchPage(
     }
 
     const response = await fetch(
-        `${API_BASE_URL}/api/search/page?${params}`,
+        `${config.apiBaseUrl}/api/search/page?${params}`,
         {
             method: "GET",
             headers: {

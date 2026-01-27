@@ -1,22 +1,66 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { DashboardToolbar } from '../components/dashboard/toolbar/DashboardToolbar';
 import { CandidateTable } from '../components/dashboard/table/CandidateTable';
 import { AISidebar } from '../components/dashboard/sidebar/AISidebar';
 import {
-  MOCK_QUERY_TITLE,
   TABLE_COLUMNS,
-  MOCK_CANDIDATES,
   MOCK_CHAT_MESSAGES,
   SUGGESTION_CHIPS,
-  INITIAL_PAGINATION,
 } from '../data/mockDashboardData';
+import { useSearch } from '../context/SearchContext';
+import { fetchSearchPage } from '../api/search';
+import { mapCandidatesToDashboard } from '../utils/candidateMapper';
 import type { DashboardCandidate, PaginationState } from '../types/dashboard';
 
 export function DashboardPage() {
+  const navigate = useNavigate();
+  const { state: searchState } = useSearch();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [candidates, setCandidates] = useState<DashboardCandidate[]>(MOCK_CANDIDATES);
-  const [pagination, setPagination] = useState<PaginationState>(INITIAL_PAGINATION);
+  const [candidates, setCandidates] = useState<DashboardCandidate[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<PaginationState>({
+    currentPage: 0,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 0,
+  });
+
+  // Redirect if no session
+  useEffect(() => {
+    if (!searchState.sessionId) {
+      navigate('/');
+    }
+  }, [searchState.sessionId, navigate]);
+
+  // Fetch initial data
+  useEffect(() => {
+    if (!searchState.sessionId) return;
+
+    const loadCandidates = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await fetchSearchPage(searchState.sessionId!, 0, 10);
+        const dashboardCandidates = mapCandidatesToDashboard(response.candidates);
+        setCandidates(dashboardCandidates);
+        setPagination({
+          currentPage: response.page,
+          pageSize: response.pageSize,
+          totalItems: response.totalCached,
+          totalPages: Math.ceil(response.totalCached / response.pageSize),
+        });
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadCandidates();
+  }, [searchState.sessionId]);
 
   const handleStarToggle = useCallback((id: string) => {
     setCandidates((prev) =>
@@ -28,10 +72,21 @@ export function DashboardPage() {
     );
   }, []);
 
-  const handlePageChange = useCallback((page: number) => {
-    setPagination((prev) => ({ ...prev, currentPage: page }));
-    // In a real app, this would fetch new data
-  }, []);
+  const handlePageChange = useCallback(async (page: number) => {
+    if (!searchState.sessionId) return;
+
+    try {
+      setIsLoading(true);
+      const response = await fetchSearchPage(searchState.sessionId, page, pagination.pageSize);
+      const dashboardCandidates = mapCandidatesToDashboard(response.candidates);
+      setCandidates(dashboardCandidates);
+      setPagination((prev) => ({ ...prev, currentPage: page }));
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchState.sessionId, pagination.pageSize]);
 
   const handleCloseSidebar = useCallback(() => {
     setIsSidebarOpen(false);
@@ -40,6 +95,29 @@ export function DashboardPage() {
   const handleToggleSidebar = useCallback(() => {
     setIsSidebarOpen((prev) => !prev);
   }, []);
+
+  // Generate query title from job description or use fallback
+  const queryTitle = searchState.jobDescription
+    ? searchState.jobDescription.slice(0, 50) + (searchState.jobDescription.length > 50 ? '...' : '')
+    : 'Search Results';
+
+  if (error) {
+    return (
+      <DashboardLayout isSidebarOpen={false} sidebar={null}>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-500 mb-4">Error: {error}</p>
+            <button
+              onClick={() => navigate('/')}
+              className="text-white underline"
+            >
+              Start new search
+            </button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
@@ -52,14 +130,20 @@ export function DashboardPage() {
         />
       }
     >
-      <DashboardToolbar queryTitle={MOCK_QUERY_TITLE} onHelpClick={handleToggleSidebar} />
-      <CandidateTable
-        candidates={candidates}
-        columns={TABLE_COLUMNS}
-        pagination={pagination}
-        onStarToggle={handleStarToggle}
-        onPageChange={handlePageChange}
-      />
+      <DashboardToolbar queryTitle={queryTitle} onHelpClick={handleToggleSidebar} />
+      {isLoading && candidates.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-gs-text-muted">Loading candidates...</p>
+        </div>
+      ) : (
+        <CandidateTable
+          candidates={candidates}
+          columns={TABLE_COLUMNS}
+          pagination={pagination}
+          onStarToggle={handleStarToggle}
+          onPageChange={handlePageChange}
+        />
+      )}
     </DashboardLayout>
   );
 }
