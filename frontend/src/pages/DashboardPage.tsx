@@ -13,6 +13,7 @@ import { useSearch } from '../context/SearchContext';
 import { fetchSearchPage } from '../api/search';
 import { mapCandidatesToDashboard } from '../utils/candidateMapper';
 import type { DashboardCandidate, PaginationState } from '../types/dashboard';
+import type { CandidateFilters } from '../types';
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -27,6 +28,8 @@ export function DashboardPage() {
     totalItems: 0,
     totalPages: 0,
   });
+  const [filters, setFilters] = useState<CandidateFilters>({});
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Redirect if no session
   useEffect(() => {
@@ -35,7 +38,7 @@ export function DashboardPage() {
     }
   }, [searchState.sessionId, navigate]);
 
-  // Fetch initial data
+  // Fetch initial data and refetch when filters change
   useEffect(() => {
     if (!searchState.sessionId) return;
 
@@ -43,7 +46,12 @@ export function DashboardPage() {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetchSearchPage(searchState.sessionId!, 0, 10);
+        const response = await fetchSearchPage(
+          searchState.sessionId!,
+          0,
+          pagination.pageSize,
+          Object.keys(filters).length > 0 ? filters : undefined
+        );
         const dashboardCandidates = mapCandidatesToDashboard(response.candidates);
         setCandidates(dashboardCandidates);
         setPagination({
@@ -60,7 +68,7 @@ export function DashboardPage() {
     };
 
     loadCandidates();
-  }, [searchState.sessionId]);
+  }, [searchState.sessionId, filters]);
 
   const handleStarToggle = useCallback((id: string) => {
     setCandidates((prev) =>
@@ -77,7 +85,12 @@ export function DashboardPage() {
 
     try {
       setIsLoading(true);
-      const response = await fetchSearchPage(searchState.sessionId, page, pagination.pageSize);
+      const response = await fetchSearchPage(
+        searchState.sessionId,
+        page,
+        pagination.pageSize,
+        Object.keys(filters).length > 0 ? filters : undefined
+      );
       const dashboardCandidates = mapCandidatesToDashboard(response.candidates);
       setCandidates(dashboardCandidates);
       setPagination((prev) => ({ ...prev, currentPage: page }));
@@ -86,7 +99,7 @@ export function DashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchState.sessionId, pagination.pageSize]);
+  }, [searchState.sessionId, pagination.pageSize, filters]);
 
   const handleCloseSidebar = useCallback(() => {
     setIsSidebarOpen(false);
@@ -94,6 +107,15 @@ export function DashboardPage() {
 
   const handleToggleSidebar = useCallback(() => {
     setIsSidebarOpen((prev) => !prev);
+  }, []);
+
+  const handleApplyFilters = useCallback((newFilters: CandidateFilters) => {
+    setFilters(newFilters);
+    setPagination((prev) => ({ ...prev, currentPage: 0 }));
+  }, []);
+
+  const handleToggleFilter = useCallback(() => {
+    setIsFilterOpen((prev) => !prev);
   }, []);
 
   const handleExportCSV = useCallback(() => {
@@ -161,7 +183,15 @@ export function DashboardPage() {
         />
       }
     >
-      <DashboardToolbar queryTitle={queryTitle} onHelpClick={handleToggleSidebar} onExportClick={handleExportCSV} />
+      <DashboardToolbar
+        queryTitle={queryTitle}
+        onHelpClick={handleToggleSidebar}
+        onExportClick={handleExportCSV}
+        filters={filters}
+        onFilterChange={handleApplyFilters}
+        isFilterOpen={isFilterOpen}
+        onFilterToggle={handleToggleFilter}
+      />
       {isLoading && candidates.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-gs-text-muted">Loading candidates...</p>
