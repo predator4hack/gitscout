@@ -187,6 +187,7 @@ export function DashboardPage() {
         queryTitle={queryTitle}
         onHelpClick={handleToggleSidebar}
         onExportClick={handleExportCSV}
+        onEnrichClick={handleToggleSidebar}
         filters={filters}
         onFilterChange={handleApplyFilters}
         isFilterOpen={isFilterOpen}

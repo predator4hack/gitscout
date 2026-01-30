@@ -8,6 +8,7 @@ interface DashboardToolbarProps {
   queryTitle: string;
   onHelpClick: () => void;
   onExportClick: () => void;
+  onEnrichClick: () => void;
   filters: CandidateFilters;
   onFilterChange: (filters: CandidateFilters) => void;
   isFilterOpen: boolean;
@@ -18,6 +19,7 @@ export function DashboardToolbar({
   queryTitle,
   onHelpClick,
   onExportClick,
+  onEnrichClick,
   filters,
   onFilterChange,
   isFilterOpen,
@@ -52,7 +54,7 @@ export function DashboardToolbar({
           </button>
         </div>
 
-        <button className="flex items-center gap-2 text-xs font-medium text-gs-text-muted hover:text-white px-3 py-1.5 hover:bg-white/[0.06] rounded-md border border-transparent hover:border-white/[0.06] transition-all">
+        <button onClick={onEnrichClick} className="flex items-center gap-2 text-xs font-medium text-gs-text-muted hover:text-white px-3 py-1.5 hover:bg-white/[0.06] rounded-md border border-transparent hover:border-white/[0.06] transition-all">
           <Icon icon="lucide:sparkles" className="w-3.5 h-3.5" />
           Enrich Data
         </button>

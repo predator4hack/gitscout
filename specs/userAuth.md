@@ -8,7 +8,7 @@ The objective of this task is to add user authentication. The user should have t
 2.  continue with google
 3.  continue with github
 
-Once the user is authenticated, user profile should be saved in our datasets. Suggest the best method to do so, I'm planning to deploy this application on google cloud run so suggest somtheing that would be comptible with that.
+Once the user is authenticated, user profile should be saved in our datasets.
 
 Saved previous results
 
