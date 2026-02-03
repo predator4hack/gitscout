@@ -19,5 +19,22 @@ class GitScoutConfig:
     HYDRATE_BATCH_SIZE: int = int(os.getenv("GITSCOUT_HYDRATE_BATCH_SIZE", "5"))
     MAX_CONCURRENT_REQUESTS: int = int(os.getenv("GITSCOUT_MAX_CONCURRENT_REQUESTS", "5"))
 
+    # Firebase settings
+    FIREBASE_PROJECT_ID: str = os.getenv("FIREBASE_PROJECT_ID", "")
+    FIREBASE_CREDENTIALS_PATH: str = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
+    FIREBASE_SERVICE_ACCOUNT_KEY: str = os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY", "")
+
+    # CORS settings
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:5173")
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Get CORS origins as a list.
+
+        Returns:
+            List of allowed CORS origins
+        """
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
 
 config = GitScoutConfig()

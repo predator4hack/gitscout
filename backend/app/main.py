@@ -10,6 +10,8 @@ load_dotenv()
 
 from .api.routes import router
 from .services.cache.search_cache import get_search_cache
+from .services.firebase import initialize_firebase, is_firebase_initialized
+from .config import config
 
 # Configure logging
 logging.basicConfig(
@@ -32,6 +34,18 @@ logger = logging.getLogger("gitscout.main")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan events"""
+    # Startup: Initialize Firebase
+    try:
+        initialize_firebase()
+        if is_firebase_initialized():
+            logger.info("✓ Firebase Admin SDK initialized successfully")
+        else:
+            logger.warning("⚠ Firebase initialization skipped (no credentials configured)")
+    except Exception as e:
+        logger.error(f"✗ Firebase initialization failed: {e}")
+        # Continue without Firebase - some features may not work
+        logger.warning("⚠ Continuing without Firebase - authentication disabled")
+
     # Startup: Initialize cache cleanup task
     cache = get_search_cache()
     cache.start_cleanup_task()
@@ -51,7 +65,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],  # Vite default ports
+    allow_origins=config.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

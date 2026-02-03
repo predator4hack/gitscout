@@ -12,6 +12,7 @@ from ..services.matching.repo_pipeline import run_repo_contributors_pipeline
 from ..services.matching.ranker import rank_candidates
 from ..services.cache.search_cache import get_search_cache
 from ..services.filtering.candidate_filter import filter_candidates
+from ..services.firebase import is_firebase_initialized
 
 # Type alias for progress callback
 ProgressCallback = Callable[[str, int, str], Awaitable[None]]
@@ -26,7 +27,10 @@ DEFAULT_PAGE_SIZE = 10
 @router.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "firebase": "connected" if is_firebase_initialized() else "not configured"
+    }
 
 
 @router.post("/search", response_model=SearchResponse)

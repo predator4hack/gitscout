@@ -210,3 +210,8 @@ __marimo__/
 
 # Frontend
 node_modules
+
+
+## Firebase
+
+serviceKeyAccount.json
