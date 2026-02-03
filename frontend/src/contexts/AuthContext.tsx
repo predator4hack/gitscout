@@ -69,6 +69,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Update profile with display name if provided
       if (displayName && userCredential.user) {
         await updateProfile(userCredential.user, { displayName });
+
+        // Reload user to get fresh data from Firebase
+        await userCredential.user.reload();
+
+        // Update React state with the refreshed user
+        setCurrentUser(auth.currentUser);
       }
     } catch (error: any) {
       console.error('Sign up error:', error);
@@ -135,6 +141,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         displayName,
         ...(photoURL && { photoURL }),
       });
+
+      // Reload user to get fresh data from Firebase
+      await currentUser.reload();
+
+      // Update React state with the refreshed user
+      setCurrentUser(auth.currentUser);
     } catch (error: any) {
       console.error('Profile update error:', error);
       throw new Error('Failed to update profile. Please try again.');

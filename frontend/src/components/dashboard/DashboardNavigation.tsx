@@ -29,10 +29,10 @@ export function DashboardNavigation() {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-4 text-[13px] font-medium">
-        {/* User email */}
+        {/* User name */}
         {currentUser && (
           <span className="text-gs-text-muted text-xs hidden sm:inline">
-            {currentUser.email}
+            {currentUser.displayName || currentUser.email}
           </span>
         )}
 

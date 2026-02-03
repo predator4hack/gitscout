@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "../shared/Icon";
 import { useSearch } from "../../context/SearchContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 export function Hero() {
     const [inputValue, setInputValue] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const navigate = useNavigate();
     const { setJobDescription } = useSearch();
+    const { currentUser } = useAuth();
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -15,7 +17,15 @@ export function Hero() {
 
         setIsSubmitting(true);
         setJobDescription(inputValue.trim());
-        navigate("/processing");
+
+        // Check if user is authenticated before proceeding
+        if (!currentUser) {
+            // Redirect to auth page with processing as the redirect target
+            navigate("/auth?redirect=/processing");
+        } else {
+            // User is authenticated, proceed to processing
+            navigate("/processing");
+        }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {

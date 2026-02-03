@@ -1,9 +1,19 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '../shared/Icon';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function Navigation() {
-  const { currentUser } = useAuth();
+  const { currentUser, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/');
+    } catch (error) {
+      console.error('Failed to sign out:', error);
+    }
+  };
 
   return (
     <nav className="fixed top-0 w-full z-50 nav-glass transition-all duration-300">
@@ -38,18 +48,23 @@ export function Navigation() {
         <div className="flex items-center gap-3">
           {currentUser ? (
             <>
+              {/* User name */}
+              <span className="text-[#888888] text-xs hidden sm:inline">
+                {currentUser.displayName || currentUser.email}
+              </span>
               <Link
                 to="/dashboard"
                 className="text-[13px] font-medium text-[#888888] hover:text-white transition-colors hidden sm:block"
               >
                 Dashboard
               </Link>
-              <Link
-                to="/app"
-                className="bg-[#EDEDED] hover:bg-white text-black text-[13px] font-medium px-3 py-1.5 rounded transition-colors tracking-tight"
+              <button
+                onClick={handleSignOut}
+                className="text-[#888888] hover:text-white flex items-center gap-1.5 transition-colors duration-200 text-[13px] font-medium"
               >
-                Start Hiring
-              </Link>
+                <Icon icon="lucide:log-out" className="w-4 h-4" />
+                Sign Out
+              </button>
             </>
           ) : (
             <>
@@ -63,7 +78,7 @@ export function Navigation() {
                 to="/app"
                 className="bg-[#EDEDED] hover:bg-white text-black text-[13px] font-medium px-3 py-1.5 rounded transition-colors tracking-tight"
               >
-                Start Hiring
+                Get Started
               </Link>
             </>
           )}
