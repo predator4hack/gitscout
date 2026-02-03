@@ -35,9 +35,9 @@ export async function apiRequest<T = any>(
   const token = await getAuthToken();
 
   // Build headers
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
   };
 
   // Add authorization header if token exists
@@ -120,12 +120,13 @@ export async function apiDelete<T = any>(endpoint: string): Promise<T> {
 
 /**
  * Server-Sent Events (SSE) request with authentication
+ * Returns a cleanup function to close the connection
  */
 export async function apiSSE(
   endpoint: string,
   onMessage: (data: any) => void,
   onError?: (error: Error) => void
-): Promise<void> {
+): Promise<() => void> {
   const token = await getAuthToken();
 
   // Build URL with auth token as query param (since EventSource doesn't support headers)

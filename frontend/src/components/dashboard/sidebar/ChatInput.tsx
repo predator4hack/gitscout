@@ -1,13 +1,33 @@
-import { useState } from 'react';
+import { useState, KeyboardEvent } from 'react';
 import { Icon } from '../../shared/Icon';
 import type { SuggestionChip } from '../../../types/dashboard';
 
 interface ChatInputProps {
   suggestions: SuggestionChip[];
+  onSendMessage: (message: string) => void;
+  disabled?: boolean;
 }
 
-export function ChatInput({ suggestions }: ChatInputProps) {
+export function ChatInput({ suggestions, onSendMessage, disabled = false }: ChatInputProps) {
   const [inputValue, setInputValue] = useState('');
+
+  const handleSend = () => {
+    if (inputValue.trim() && !disabled) {
+      onSendMessage(inputValue.trim());
+      setInputValue('');
+    }
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleSuggestionClick = (prompt: string) => {
+    onSendMessage(prompt);
+  };
 
   return (
     <div className="p-4 border-t border-white/[0.06] bg-gs-card">
@@ -16,8 +36,9 @@ export function ChatInput({ suggestions }: ChatInputProps) {
         {suggestions.map((chip) => (
           <button
             key={chip.id}
-            onClick={() => setInputValue(chip.prompt)}
-            className="suggestion-chip"
+            onClick={() => handleSuggestionClick(chip.prompt)}
+            disabled={disabled}
+            className="suggestion-chip disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {chip.label}
           </button>
@@ -30,8 +51,10 @@ export function ChatInput({ suggestions }: ChatInputProps) {
           rows={2}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          className="w-full bg-transparent text-sm text-gs-text-main placeholder-gs-text-darker resize-none outline-none font-medium px-1"
-          placeholder="Ask me anything about your contributors... (type @ to mention)"
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          className="w-full bg-transparent text-sm text-gs-text-main placeholder-gs-text-darker resize-none outline-none font-medium px-1 disabled:opacity-50"
+          placeholder="Ask me to filter candidates or draft an email..."
         />
 
         <div className="flex items-center justify-between mt-2 px-1">
@@ -41,13 +64,11 @@ export function ChatInput({ suggestions }: ChatInputProps) {
               Agent
               <Icon icon="lucide:chevron-down" className="w-3 h-3 ml-0.5" />
             </button>
-            <button className="p-1.5 text-gs-text-muted hover:text-gs-text-main hover:bg-white/[0.06] rounded transition-colors">
-              <Icon icon="lucide:paperclip" className="w-3.5 h-3.5" />
-            </button>
           </div>
 
           <button
-            disabled={!inputValue.trim()}
+            onClick={handleSend}
+            disabled={!inputValue.trim() || disabled}
             className="p-1.5 bg-white/10 text-white/50 rounded hover:bg-white hover:text-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Icon icon="lucide:arrow-up" className="w-3.5 h-3.5" />

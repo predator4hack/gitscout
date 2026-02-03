@@ -2,7 +2,7 @@
  * Authentication context provider using Firebase Auth
  */
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import {
   User,
   signInWithEmailAndPassword,

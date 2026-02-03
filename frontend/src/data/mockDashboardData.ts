@@ -1,6 +1,5 @@
 import type {
     DashboardCandidate,
-    ChatMessage,
     SuggestionChip,
     TableColumn,
     PaginationState,
@@ -398,30 +397,8 @@ export const MOCK_CANDIDATES: DashboardCandidate[] = [
     },
 ];
 
-export const MOCK_CHAT_MESSAGES: ChatMessage[] = [
-    {
-        id: "1",
-        type: "user",
-        content: "Filter out the candidates that reside in india",
-        timestamp: new Date("2024-01-15T10:30:00"),
-    },
-    {
-        id: "2",
-        type: "step",
-        content: "",
-        timestamp: new Date("2024-01-15T10:30:01"),
-        steps: [
-            { id: "s1", label: "list_contributors", status: "complete" },
-            { id: "s2", label: "set_location_filter", status: "complete" },
-        ],
-    },
-    {
-        id: "3",
-        type: "ai",
-        content: "The location filter is added and the results are shown",
-        timestamp: new Date("2024-01-15T10:30:05"),
-    },
-];
+// Mock chat messages are no longer used - chat is now powered by the real backend
+// export const MOCK_CHAT_MESSAGES: ChatMessage[] = [];
 
 export const SUGGESTION_CHIPS: SuggestionChip[] = [
     {

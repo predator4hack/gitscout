@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from .api.routes import router
+from .api.chat_routes import router as chat_router
 from .services.cache.search_cache import get_search_cache
 from .services.firebase import initialize_firebase, is_firebase_initialized
 from .config import config
@@ -73,6 +74,7 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(router, prefix="/api")
+app.include_router(chat_router, prefix="/api")
 
 
 @app.get("/")

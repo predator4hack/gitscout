@@ -27,6 +27,10 @@ class GitScoutConfig:
     # CORS settings
     CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:5173")
 
+    # Chat settings
+    CHAT_MAX_TOKENS: int = int(os.getenv("GITSCOUT_CHAT_MAX_TOKENS", "10000"))
+    CHAT_MAX_CLARIFICATIONS: int = int(os.getenv("GITSCOUT_CHAT_MAX_CLARIFICATIONS", "3"))
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Get CORS origins as a list.

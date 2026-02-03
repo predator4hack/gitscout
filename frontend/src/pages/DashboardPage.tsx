@@ -4,15 +4,11 @@ import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { DashboardToolbar } from '../components/dashboard/toolbar/DashboardToolbar';
 import { CandidateTable } from '../components/dashboard/table/CandidateTable';
 import { AISidebar } from '../components/dashboard/sidebar/AISidebar';
-import {
-  TABLE_COLUMNS,
-  MOCK_CHAT_MESSAGES,
-  SUGGESTION_CHIPS,
-} from '../data/mockDashboardData';
+import { TABLE_COLUMNS } from '../data/mockDashboardData';
 import { useSearch } from '../context/SearchContext';
 import { fetchSearchPage } from '../api/search';
 import { mapCandidatesToDashboard } from '../utils/candidateMapper';
-import type { DashboardCandidate, PaginationState } from '../types/dashboard';
+import type { DashboardCandidate, PaginationState, FilterProposal } from '../types/dashboard';
 import type { CandidateFilters } from '../types';
 
 export function DashboardPage() {
@@ -114,6 +110,24 @@ export function DashboardPage() {
     setPagination((prev) => ({ ...prev, currentPage: 0 }));
   }, []);
 
+  const handleFiltersAppliedFromChat = useCallback((filterProposal: FilterProposal) => {
+    // Convert FilterProposal to CandidateFilters
+    const candidateFilters: CandidateFilters = {
+      location: filterProposal.location || undefined,
+      followersMin: filterProposal.followers_min || undefined,
+      followersMax: filterProposal.followers_max || undefined,
+      hasEmail: filterProposal.has_email || undefined,
+      hasAnyContact: filterProposal.has_any_contact || undefined,
+      lastContribution: (filterProposal.last_contribution as "30d" | "3m" | "6m" | "1y") || undefined,
+    };
+
+    // Apply the filters
+    handleApplyFilters(candidateFilters);
+
+    // Close the sidebar after applying filters
+    setIsSidebarOpen(false);
+  }, [handleApplyFilters]);
+
   const handleToggleFilter = useCallback(() => {
     setIsFilterOpen((prev) => !prev);
   }, []);
@@ -176,11 +190,13 @@ export function DashboardPage() {
     <DashboardLayout
       isSidebarOpen={isSidebarOpen}
       sidebar={
-        <AISidebar
-          messages={MOCK_CHAT_MESSAGES}
-          suggestions={SUGGESTION_CHIPS}
-          onClose={handleCloseSidebar}
-        />
+        searchState.sessionId ? (
+          <AISidebar
+            sessionId={searchState.sessionId}
+            onClose={handleCloseSidebar}
+            onFiltersApplied={handleFiltersAppliedFromChat}
+          />
+        ) : null
       }
     >
       <DashboardToolbar

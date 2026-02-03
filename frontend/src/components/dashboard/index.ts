@@ -17,5 +17,4 @@ export { TablePagination } from './table/TablePagination';
 export { AISidebar } from './sidebar/AISidebar';
 export { SidebarHeader } from './sidebar/SidebarHeader';
 export { ChatArea } from './sidebar/ChatArea';
-export { ChatMessage } from './sidebar/ChatMessage';
 export { ChatInput } from './sidebar/ChatInput';
