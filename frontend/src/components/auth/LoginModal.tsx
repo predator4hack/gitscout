@@ -1,4 +1,7 @@
 /**
+ * @deprecated This modal has been replaced by AuthPage.tsx
+ * Kept for reference only. Use /auth route instead.
+ *
  * Login/Signup modal component with Firebase authentication
  */
 

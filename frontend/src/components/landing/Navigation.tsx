@@ -1,15 +1,11 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../shared/Icon';
-import { LoginModal } from '../auth/LoginModal';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function Navigation() {
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const { currentUser } = useAuth();
 
   return (
-    <>
     <nav className="fixed top-0 w-full z-50 nav-glass transition-all duration-300">
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
         {/* Logo */}
@@ -57,12 +53,12 @@ export function Navigation() {
             </>
           ) : (
             <>
-              <button
-                onClick={() => setShowLoginModal(true)}
+              <Link
+                to="/auth"
                 className="text-[13px] font-medium text-[#888888] hover:text-white transition-colors hidden sm:block"
               >
                 Log in
-              </button>
+              </Link>
               <Link
                 to="/app"
                 className="bg-[#EDEDED] hover:bg-white text-black text-[13px] font-medium px-3 py-1.5 rounded transition-colors tracking-tight"
@@ -74,8 +70,5 @@ export function Navigation() {
         </div>
       </div>
     </nav>
-
-    <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
-    </>
   );
 }
