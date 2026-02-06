@@ -5,7 +5,7 @@ import { DashboardToolbar } from '../components/dashboard/toolbar/DashboardToolb
 import { CandidateTable } from '../components/dashboard/table/CandidateTable';
 import { AISidebar } from '../components/dashboard/sidebar/AISidebar';
 import { TABLE_COLUMNS } from '../data/mockDashboardData';
-import { useSearch } from '../context/SearchContext';
+import { useSearch } from '../contexts/SearchContext';
 import { fetchSearchPage } from '../api/search';
 import { mapCandidatesToDashboard } from '../utils/candidateMapper';
 import type { DashboardCandidate, PaginationState, FilterProposal } from '../types/dashboard';

@@ -5,7 +5,7 @@ import { NoiseOverlay } from '../components/landing/NoiseOverlay';
 import { ProcessingLoader } from '../components/processing/ProcessingLoader';
 import { ProgressBar } from '../components/processing/ProgressBar';
 import { StepIndicator, ProcessingStep } from '../components/processing/StepIndicator';
-import { useSearch } from '../context/SearchContext';
+import { useSearch } from '../contexts/SearchContext';
 import { useSearchSSE, SearchStep } from '../hooks/useSearchSSE';
 import { config } from '../config';
 

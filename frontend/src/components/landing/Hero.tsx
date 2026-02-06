@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "../shared/Icon";
-import { useSearch } from "../../context/SearchContext";
+import { useSearch } from "../../contexts/SearchContext";
 import { useAuth } from "../../contexts/AuthContext";
 
 export function Hero() {

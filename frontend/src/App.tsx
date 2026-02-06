@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
-import { SearchProvider } from './context/SearchContext';
+import { SearchProvider } from './contexts/SearchContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { LandingPage } from './pages/LandingPage';
