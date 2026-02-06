@@ -102,32 +102,6 @@ const firebaseConfig = {
 };
 ```
 
-```javascript
-// Import the functions you need from the SDKs you need
-
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-
-const firebaseConfig = {
-    apiKey: "AIzaSyAyymuXmBHVOJXc3oXyfeDnoYG7hbVBHac",
-    authDomain: "gitscout-d9240.firebaseapp.com",
-    projectId: "gitscout-d9240",
-    storageBucket: "gitscout-d9240.firebasestorage.app",
-    messagingSenderId: "774285251684",
-    appId: "1:774285251684:web:4a72a676bc03bae00e7b71",
-    measurementId: "G-EP92VK4GE6",
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-```
-
 **Save these values** - you'll need them for the frontend `.env` file.
 
 ### 1.5 Generate Service Account Key (for Backend)
