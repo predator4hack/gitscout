@@ -82,11 +82,14 @@ class IntentClassifier:
                 if not any(keyword in message_lower for keyword in self.EMAIL_KEYWORDS):
                     return ChatIntent.FILTER_CANDIDATES
 
-        # Check for email intent first (higher priority)
-        if self._check_keywords(message_lower, self.EMAIL_KEYWORDS):
-            # Make sure it's not just asking about contact info
-            if "who has" not in message_lower and "show" not in message_lower:
-                return ChatIntent.DRAFT_EMAIL
+        # Check for filter intent FIRST (most common use case)
+        if self._check_keywords(message_lower, self.FILTER_KEYWORDS):
+            return ChatIntent.FILTER_CANDIDATES
+
+        # Check for email intent - require explicit drafting verbs
+        email_action_verbs = ["draft", "write", "compose", "reach out", "outreach"]
+        if any(verb in message_lower for verb in email_action_verbs):
+            return ChatIntent.DRAFT_EMAIL
 
         # Check for candidate info intent (with @ mention or specific queries)
         if "@" in message or self._check_keywords(message_lower, self.CANDIDATE_INFO_KEYWORDS):
@@ -95,10 +98,6 @@ class IntentClassifier:
         # Check for comparison intent
         if self._check_keywords(message_lower, self.COMPARE_KEYWORDS):
             return ChatIntent.COMPARE_CANDIDATES
-
-        # Check for filter intent
-        if self._check_keywords(message_lower, self.FILTER_KEYWORDS):
-            return ChatIntent.FILTER_CANDIDATES
 
         # Default to out of scope
         return ChatIntent.OUT_OF_SCOPE
