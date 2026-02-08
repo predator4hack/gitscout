@@ -32,7 +32,7 @@ export interface StepIndicator {
 
 // Chat-related types
 export type MessageRole = 'user' | 'assistant' | 'system';
-export type MessageType = 'text' | 'filter_proposal' | 'clarification' | 'email_draft' | 'step';
+export type MessageType = 'text' | 'filter_proposal' | 'clarification' | 'multi_clarification' | 'email_draft' | 'step';
 export type ConversationState = 'idle' | 'gathering_info' | 'awaiting_confirmation' | 'applying_filters' | 'completed';
 export type ChatIntent = 'filter_candidates' | 'draft_email' | 'candidate_info' | 'compare_candidates' | 'out_of_scope';
 
@@ -66,6 +66,12 @@ export interface ClarificationQuestion {
   field_name: string;
 }
 
+export interface MultiClarificationContent {
+  questions: ClarificationQuestion[];
+  answers?: Record<string, string> | null;
+  all_answered: boolean;
+}
+
 export interface ChatMessage {
   message_id?: string;
   conversation_id: string;
@@ -77,6 +83,7 @@ export interface ChatMessage {
   text_content?: string | null;
   filter_proposal_content?: FilterProposal | null;
   clarification_content?: ClarificationQuestion | null;
+  multi_clarification_content?: MultiClarificationContent | null;
   email_draft_content?: EmailDraft | null;
   step_content?: string | null;
 }

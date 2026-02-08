@@ -200,3 +200,49 @@ export async function getConversationBySession(
         updated_at: new Date(data.updated_at),
     };
 }
+
+/**
+ * Submit answers to clarification questions
+ */
+export async function answerClarification(
+    conversationId: string,
+    messageId: string,
+    answers: Record<string, string>
+): Promise<{
+    status: string;
+    session_id: string;
+    total_found: number;
+    message: string;
+}> {
+    const token = await getAuthToken();
+    if (!token) {
+        throw new Error("User not authenticated");
+    }
+
+    const response = await fetch(
+        `${config.apiBaseUrl}/api/chat/clarification/answer`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                conversation_id: conversationId,
+                message_id: messageId,
+                answers,
+            }),
+        }
+    );
+
+    if (!response.ok) {
+        const error = await response
+            .json()
+            .catch(() => ({ detail: "Unknown error" }));
+        throw new Error(
+            error.detail || `HTTP error! status: ${response.status}`
+        );
+    }
+
+    return response.json();
+}

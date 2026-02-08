@@ -38,6 +38,7 @@ export function AISidebar({ sessionId, onClose, onFiltersApplied, initialContext
     error,
     sendMessage,
     confirmFilter,
+    answerMultiClarification,
     clearError,
   } = useChat({
     sessionId,
@@ -77,6 +78,10 @@ export function AISidebar({ sessionId, onClose, onFiltersApplied, initialContext
     await sendMessage(answer);
   };
 
+  const handleAnswerMultiClarification = async (messageId: string, answers: Record<string, string>) => {
+    await answerMultiClarification(messageId, answers);
+  };
+
   return (
     <>
       <SidebarHeader
@@ -102,6 +107,7 @@ export function AISidebar({ sessionId, onClose, onFiltersApplied, initialContext
         messages={messages}
         onConfirmFilter={handleConfirmFilter}
         onAnswerClarification={handleAnswerClarification}
+        onAnswerMultiClarification={handleAnswerMultiClarification}
         disabled={isLoading}
       />
 

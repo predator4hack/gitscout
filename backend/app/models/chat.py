@@ -16,6 +16,7 @@ class MessageType(str, Enum):
     TEXT = "text"
     FILTER_PROPOSAL = "filter_proposal"
     CLARIFICATION = "clarification"
+    MULTI_CLARIFICATION = "multi_clarification"
     EMAIL_DRAFT = "email_draft"
     STEP = "step"
 
@@ -72,6 +73,20 @@ class ClarificationQuestion(BaseModel):
     field_name: str = Field(..., description="Field name this question clarifies")
 
 
+class MultiClarificationContent(BaseModel):
+    """Content for multi-clarification message type with multiple questions"""
+    questions: List[ClarificationQuestion] = Field(..., description="List of clarification questions (1-3)")
+    answers: Optional[Dict[str, str]] = Field(None, description="User's answers keyed by field_name")
+    all_answered: bool = Field(False, description="Whether all questions have been answered")
+
+
+class AnswerClarificationRequest(BaseModel):
+    """Request to submit answers to clarification questions"""
+    conversation_id: str = Field(..., description="Conversation ID")
+    message_id: str = Field(..., description="Message ID containing the clarification questions")
+    answers: Dict[str, str] = Field(..., description="Answers keyed by field_name")
+
+
 class ChatMessage(BaseModel):
     """A single message in the conversation"""
     message_id: Optional[str] = Field(None, description="Unique message ID")
@@ -85,6 +100,7 @@ class ChatMessage(BaseModel):
     text_content: Optional[str] = Field(None, description="Text content for TEXT type")
     filter_proposal_content: Optional[FilterProposal] = Field(None, description="Filter proposal for FILTER_PROPOSAL type")
     clarification_content: Optional[ClarificationQuestion] = Field(None, description="Clarification for CLARIFICATION type")
+    multi_clarification_content: Optional[MultiClarificationContent] = Field(None, description="Multi-clarification for MULTI_CLARIFICATION type")
     email_draft_content: Optional[EmailDraft] = Field(None, description="Email draft for EMAIL_DRAFT type")
     step_content: Optional[str] = Field(None, description="Step description for STEP type")
 

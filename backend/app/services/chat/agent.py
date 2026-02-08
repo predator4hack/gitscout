@@ -11,6 +11,7 @@ from app.models.chat import (
     ChatIntent,
     FilterProposal,
     SendMessageResponse,
+    MultiClarificationContent,
 )
 from app.models.requests import CandidateFilters
 from app.models.responses import Candidate
@@ -19,6 +20,7 @@ from app.services.chat.chat_service import get_chat_service
 from app.services.chat.intent_classifier import get_intent_classifier
 from app.services.chat.filter_extractor import get_filter_extractor
 from app.services.chat.email_generator import get_email_generator
+from app.services.chat.clarification_generator import get_clarification_generator
 from app.services.cache.search_cache import get_search_cache
 from app.services.filtering.candidate_filter import filter_candidates
 
@@ -32,6 +34,7 @@ class ChatAgent:
         self.intent_classifier = get_intent_classifier()
         self.filter_extractor = get_filter_extractor()
         self.email_generator = get_email_generator()
+        self.clarification_generator = get_clarification_generator()
         self.search_cache = get_search_cache()
 
     async def process_message(
@@ -151,7 +154,7 @@ class ChatAgent:
     async def _handle_filter_request(
         self, conversation_id: str, message: str, current_state: ConversationState
     ) -> List[ChatMessage]:
-        """Handle filter-related requests.
+        """Handle filter-related requests using LLM-powered clarification generation.
 
         Args:
             conversation_id: Conversation ID
@@ -161,91 +164,83 @@ class ChatAgent:
         Returns:
             List of response messages
         """
-        # Check clarification limit
-        can_clarify = await self.chat_service.check_clarification_limit(
-            conversation_id, config.CHAT_MAX_CLARIFICATIONS
-        )
+        # Get conversation and session data for context
+        conversation = await self.chat_service.get_conversation(conversation_id)
+        session_data = self.search_cache.get_session_data(conversation.session_id)
 
-        # Extract filters from message
-        filter_proposal, clarifications = self.filter_extractor.extract_filters(message)
-
-        # If we need clarifications and haven't hit the limit
-        if clarifications and can_clarify:
-            messages = []
-            for clarification in clarifications:
-                clarification_message = ChatMessage(
-                    conversation_id=conversation_id,
-                    role=MessageRole.ASSISTANT,
-                    type=MessageType.CLARIFICATION,
-                    clarification_content=clarification,
-                    tokens_used=self._estimate_tokens(clarification.question),
-                )
-                await self.chat_service.save_message(conversation_id, clarification_message)
-                messages.append(clarification_message)
-
-            # Update clarification count
-            await self.chat_service.update_conversation_state(
-                conversation_id, increment_clarifications=True
-            )
-
-            return messages
-
-        # If we have a filter proposal, estimate result count and propose
-        if filter_proposal:
-            # Get session data to estimate count
-            conversation = await self.chat_service.get_conversation(conversation_id)
-            session_data = self.search_cache.get_session_data(conversation.session_id)
-
-            if session_data:
-                candidates = session_data.get("candidates", [])
-
-                # Convert FilterProposal to CandidateFilters for estimation
-                candidate_filters = CandidateFilters(
-                    location=filter_proposal.location,
-                    followers_min=filter_proposal.followers_min,
-                    followers_max=filter_proposal.followers_max,
-                    has_email=filter_proposal.has_email,
-                    has_any_contact=filter_proposal.has_any_contact,
-                    last_contribution=filter_proposal.last_contribution,
-                )
-
-                filtered = filter_candidates(candidates, candidate_filters)
-                filter_proposal.estimated_count = len(filtered)
-
-            # Create filter proposal message
-            proposal_message = ChatMessage(
+        if not session_data:
+            error_message = ChatMessage(
                 conversation_id=conversation_id,
                 role=MessageRole.ASSISTANT,
-                type=MessageType.FILTER_PROPOSAL,
-                filter_proposal_content=filter_proposal,
-                tokens_used=self._estimate_tokens(filter_proposal.explanation),
+                type=MessageType.TEXT,
+                text_content="I couldn't find the search session data. Please try refreshing the page.",
+                tokens_used=20,
             )
-            await self.chat_service.save_message(conversation_id, proposal_message)
+            await self.chat_service.save_message(conversation_id, error_message)
+            return [error_message]
 
-            # Update state to awaiting confirmation
+        # Get context
+        candidates = session_data.get("candidates", [])
+        candidate_count = len(candidates)
+        job_description = conversation.job_description or session_data.get("jd_text", "")
+
+        # Get conversation history for context
+        messages = await self.chat_service.get_messages(conversation_id)
+        conversation_history = [
+            {
+                "role": msg.role.value,
+                "content": msg.text_content or ""
+            }
+            for msg in messages[-5:]  # Last 5 messages
+            if msg.text_content
+        ]
+
+        try:
+            # Generate clarifications using LLM
+            multi_clarification = await self.clarification_generator.generate_clarifications(
+                user_query=message,
+                job_description=job_description,
+                candidate_count=candidate_count,
+                conversation_history=conversation_history
+            )
+
+            # Create multi-clarification message
+            clarification_message = ChatMessage(
+                conversation_id=conversation_id,
+                role=MessageRole.ASSISTANT,
+                type=MessageType.MULTI_CLARIFICATION,
+                multi_clarification_content=multi_clarification,
+                tokens_used=self._estimate_tokens(
+                    " ".join([q.question for q in multi_clarification.questions])
+                ),
+            )
+            await self.chat_service.save_message(conversation_id, clarification_message)
+
+            # Update state to gathering info
             await self.chat_service.update_conversation_state(
                 conversation_id,
-                state=ConversationState.AWAITING_CONFIRMATION,
-                tokens_used=proposal_message.tokens_used,
+                state=ConversationState.GATHERING_INFO,
+                tokens_used=clarification_message.tokens_used,
             )
 
-            return [proposal_message]
+            return [clarification_message]
 
-        # If no filters extracted, ask for clarification
-        clarification_text = "I'd like to help filter the candidates, but I need more specific criteria. Could you tell me what you're looking for? For example, location, follower count, or activity level."
-        clarification_message = ChatMessage(
-            conversation_id=conversation_id,
-            role=MessageRole.ASSISTANT,
-            type=MessageType.TEXT,
-            text_content=clarification_text,
-            tokens_used=self._estimate_tokens(clarification_text),
-        )
-        await self.chat_service.save_message(conversation_id, clarification_message)
-        await self.chat_service.update_conversation_state(
-            conversation_id, tokens_used=clarification_message.tokens_used
-        )
+        except Exception as e:
+            # If LLM fails, fallback to asking for more information
+            error_text = "I'd like to help refine your search. Could you provide more details about what you're looking for?"
+            fallback_message = ChatMessage(
+                conversation_id=conversation_id,
+                role=MessageRole.ASSISTANT,
+                type=MessageType.TEXT,
+                text_content=error_text,
+                tokens_used=self._estimate_tokens(error_text),
+            )
+            await self.chat_service.save_message(conversation_id, fallback_message)
+            await self.chat_service.update_conversation_state(
+                conversation_id, tokens_used=fallback_message.tokens_used
+            )
 
-        return [clarification_message]
+            return [fallback_message]
 
     async def _handle_email_request(
         self, conversation_id: str, job_description: Optional[str]

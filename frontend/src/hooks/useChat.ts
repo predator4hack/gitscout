@@ -8,6 +8,7 @@ import {
 import {
     sendChatMessage,
     confirmFilter as confirmFilterAPI,
+    answerClarification as answerClarificationAPI,
     getConversationBySession,
 } from "../api/chat";
 
@@ -29,6 +30,7 @@ interface UseChatReturn {
         confirmed: boolean,
         modifiedFilters?: FilterProposal
     ) => Promise<void>;
+    answerMultiClarification: (messageId: string, answers: Record<string, string>) => Promise<void>;
     clearError: () => void;
 }
 
@@ -172,6 +174,55 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         [conversationId, onFiltersApplied]
     );
 
+    const answerMultiClarification = useCallback(
+        async (messageId: string, answers: Record<string, string>) => {
+            if (!conversationId) {
+                setError("No active conversation");
+                return;
+            }
+
+            setIsLoading(true);
+            setError(null);
+
+            try {
+                const response = await answerClarificationAPI(
+                    conversationId,
+                    messageId,
+                    answers
+                );
+
+                // Add confirmation message
+                const confirmationMessage: ChatMessage = {
+                    conversation_id: conversationId,
+                    role: "assistant",
+                    type: "text",
+                    timestamp: new Date(),
+                    tokens_used: 0,
+                    text_content: response.message,
+                };
+                setMessages((prev) => [...prev, confirmationMessage]);
+                setConversationState("completed");
+                setRequiresUserAction(false);
+
+                // Trigger filters applied callback to refresh candidate table
+                // The backend has already updated the session with new candidates
+                onFiltersApplied?.({
+                    explanation: response.message,
+                    estimated_count: response.total_found,
+                });
+            } catch (err) {
+                const errorMessage =
+                    err instanceof Error
+                        ? err.message
+                        : "Failed to process clarification answers";
+                setError(errorMessage);
+            } finally {
+                setIsLoading(false);
+            }
+        },
+        [conversationId, onFiltersApplied]
+    );
+
     const clearError = useCallback(() => {
         setError(null);
     }, []);
@@ -185,6 +236,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         requiresUserAction,
         sendMessage,
         confirmFilter,
+        answerMultiClarification,
         clearError,
     };
 }

@@ -7,16 +7,20 @@ from app.models.chat import (
     SendMessageRequest,
     SendMessageResponse,
     ConfirmFilterRequest,
+    AnswerClarificationRequest,
     ConversationHistoryResponse,
     ChatMessage,
     MessageRole,
     MessageType,
+    ConversationState,
 )
 from app.models.requests import CandidateFilters
 from app.services.chat.agent import get_chat_agent
 from app.services.chat.chat_service import get_chat_service
+from app.services.chat.query_modifier import get_query_modifier
 from app.services.cache.search_cache import get_search_cache
 from app.services.filtering.candidate_filter import filter_candidates
+from app.services.matching.repo_pipeline import run_repo_contributors_pipeline
 from app.services.firebase.auth import CurrentUser, FirebaseUser
 
 logger = logging.getLogger("gitscout.chat")
@@ -157,8 +161,6 @@ async def confirm_filter(
             await chat_service.save_message(request.conversation_id, confirmation_message)
 
             # Update conversation state
-            from app.models.chat import ConversationState
-
             await chat_service.update_conversation_state(
                 request.conversation_id,
                 state=ConversationState.COMPLETED,
@@ -185,8 +187,6 @@ async def confirm_filter(
             await chat_service.save_message(request.conversation_id, rejection_message)
 
             # Reset state to gathering info
-            from app.models.chat import ConversationState
-
             await chat_service.update_conversation_state(
                 request.conversation_id,
                 state=ConversationState.GATHERING_INFO,
@@ -203,6 +203,136 @@ async def confirm_filter(
         raise
     except Exception as e:
         logger.error(f"POST /chat/filter/confirm internal error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.post("/clarification/answer")
+async def answer_clarification(
+    request: AnswerClarificationRequest,
+    current_user: CurrentUser,
+):
+    """Submit answers to clarification questions and re-run search with updated spec.
+
+    Args:
+        request: Clarification answer request with conversation ID, message ID, and answers
+        current_user: Authenticated user
+
+    Returns:
+        Dict with status, session_id, and total candidates found
+    """
+    logger.info(
+        f"POST /chat/clarification/answer - user: {current_user.uid}, "
+        f"conversation: {request.conversation_id}, "
+        f"answers: {len(request.answers)}"
+    )
+
+    try:
+        chat_service = get_chat_service()
+        search_cache = get_search_cache()
+
+        # Get conversation
+        conversation = await chat_service.get_conversation(request.conversation_id)
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        # Verify user owns the conversation
+        if conversation.user_id != current_user.uid:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+        # Get the clarification message
+        messages = await chat_service.get_messages(request.conversation_id)
+        clarification_message = None
+        for msg in messages:
+            if msg.message_id == request.message_id:
+                if msg.type != MessageType.MULTI_CLARIFICATION:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Message is not a multi-clarification",
+                    )
+                clarification_message = msg
+                break
+
+        if not clarification_message:
+            raise HTTPException(status_code=404, detail="Clarification message not found")
+
+        # Get session data
+        session_data = search_cache.get_session_data(conversation.session_id)
+        if not session_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Search session {conversation.session_id} not found",
+            )
+
+        # Get original JD spec from session
+        from app.models.jd_spec import GitScoutJDSpec
+        original_spec_dict = session_data.get("jd_spec")
+        if not original_spec_dict:
+            raise HTTPException(
+                status_code=400,
+                detail="Original search specification not found in session",
+            )
+
+        original_spec = GitScoutJDSpec(**original_spec_dict)
+        original_jd = session_data.get("jd_text", "")
+
+        # Use QueryModifier to update the spec
+        query_modifier = get_query_modifier()
+        updated_spec = await query_modifier.modify_spec(
+            original_spec=original_spec,
+            answers=request.answers,
+            original_jd=original_jd
+        )
+
+        logger.info(f"Updated spec based on user answers: {updated_spec.model_dump()}")
+
+        # Re-run the search pipeline with updated spec
+        from app.config import config
+
+        result = await run_repo_contributors_pipeline(
+            jd_spec=updated_spec,
+            provider=config.LLM_PROVIDER,
+            model=config.LLM_MODEL,
+            max_candidates=config.SEARCH_MAX_CANDIDATES,
+        )
+
+        # Update session cache with new results
+        session_data["candidates"] = [c.model_dump() for c in result.candidates]
+        session_data["jd_spec"] = updated_spec.model_dump()
+        search_cache.save_session_data(conversation.session_id, session_data)
+
+        # Save confirmation message
+        confirmation_text = f"Search refined based on your preferences. Found {len(result.candidates)} candidates."
+        confirmation_message = ChatMessage(
+            conversation_id=request.conversation_id,
+            role=MessageRole.ASSISTANT,
+            type=MessageType.TEXT,
+            text_content=confirmation_text,
+            tokens_used=len(confirmation_text) // 4,
+        )
+        await chat_service.save_message(request.conversation_id, confirmation_message)
+
+        # Update conversation state to completed
+        await chat_service.update_conversation_state(
+            request.conversation_id,
+            state=ConversationState.COMPLETED,
+        )
+
+        logger.info(
+            f"Clarification answers processed - session: {conversation.session_id}, "
+            f"candidates: {len(result.candidates)}"
+        )
+
+        return {
+            "status": "success",
+            "session_id": conversation.session_id,
+            "total_found": len(result.candidates),
+            "message": confirmation_text,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"POST /chat/clarification/answer internal error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
