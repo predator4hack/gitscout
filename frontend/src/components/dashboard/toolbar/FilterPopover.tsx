@@ -61,7 +61,7 @@ export function FilterPopover({ filters, onApplyFilters, onClose, disabled }: Fi
       {/* Popover */}
       <div
         ref={popoverRef}
-        className="absolute top-[60px] left-[280px] w-[320px] bg-[#1a1a1a] border border-white/[0.08] rounded-lg shadow-2xl overflow-hidden"
+        className="absolute top-[60px] left-4 right-4 md:left-[280px] md:right-auto md:w-[320px] bg-[#1a1a1a] border border-white/[0.08] rounded-lg shadow-2xl overflow-hidden"
       >
         {/* Filter content - no header to save space */}
         <div className="p-3 space-y-3 max-h-[calc(100vh-8rem)] overflow-y-auto">
