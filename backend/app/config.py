@@ -31,6 +31,13 @@ class GitScoutConfig:
     CHAT_MAX_TOKENS: int = int(os.getenv("GITSCOUT_CHAT_MAX_TOKENS", "10000"))
     CHAT_MAX_CLARIFICATIONS: int = int(os.getenv("GITSCOUT_CHAT_MAX_CLARIFICATIONS", "3"))
 
+    # LLM settings for chat
+    LLM_PROVIDER: str = os.getenv("DEFAULT_LLM_PROVIDER", "gemini")
+    LLM_MODEL: str = os.getenv("DEFAULT_LLM_MODEL", "")
+
+    # Search settings
+    SEARCH_MAX_CANDIDATES: int = int(os.getenv("GITSCOUT_SEARCH_MAX_CANDIDATES", "50"))
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Get CORS origins as a list.

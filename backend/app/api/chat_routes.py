@@ -276,7 +276,11 @@ async def answer_clarification(
         original_jd = session_data.get("jd_text", "")
 
         # Use QueryModifier to update the spec
-        query_modifier = get_query_modifier()
+        from app.config import config
+        query_modifier = get_query_modifier(
+            provider=config.LLM_PROVIDER,
+            model=config.LLM_MODEL or None
+        )
         updated_spec = await query_modifier.modify_spec(
             original_spec=original_spec,
             answers=request.answers,
@@ -284,9 +288,6 @@ async def answer_clarification(
         )
 
         logger.info(f"Updated spec based on user answers: {updated_spec.model_dump()}")
-
-        # Re-run the search pipeline with updated spec
-        from app.config import config
 
         result = await run_repo_contributors_pipeline(
             jd_spec=updated_spec,

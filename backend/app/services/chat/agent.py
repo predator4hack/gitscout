@@ -34,7 +34,10 @@ class ChatAgent:
         self.intent_classifier = get_intent_classifier()
         self.filter_extractor = get_filter_extractor()
         self.email_generator = get_email_generator()
-        self.clarification_generator = get_clarification_generator()
+        self.clarification_generator = get_clarification_generator(
+            provider=config.LLM_PROVIDER,
+            model=config.LLM_MODEL or None
+        )
         self.search_cache = get_search_cache()
 
     async def process_message(

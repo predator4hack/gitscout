@@ -162,6 +162,9 @@ class ChatService:
         if message.clarification_content is not None:
             message_data["clarificationContent"] = message.clarification_content.model_dump()
 
+        if message.multi_clarification_content is not None:
+            message_data["multiClarificationContent"] = message.multi_clarification_content.model_dump()
+
         if message.email_draft_content is not None:
             message_data["emailDraftContent"] = message.email_draft_content.model_dump()
 
@@ -210,6 +213,7 @@ class ChatService:
                 text_content=doc.get("textContent"),
                 filter_proposal_content=doc.get("filterProposalContent"),
                 clarification_content=doc.get("clarificationContent"),
+                multi_clarification_content=doc.get("multiClarificationContent"),
                 email_draft_content=doc.get("emailDraftContent"),
                 step_content=doc.get("stepContent"),
             )

@@ -69,10 +69,18 @@ JSON:"""
     def _get_llm_provider(self) -> LLMProvider:
         """Get or create the LLM provider instance."""
         if self._llm_provider is None:
+            # Use provided model or default based on provider
+            model = self.model
+            if not model:
+                if self.provider == "gemini":
+                    model = "gemini-1.5-flash"
+                elif self.provider == "groq":
+                    model = "llama-3.3-70b-versatile"
+
             if self.provider == "gemini":
-                self._llm_provider = GeminiLLMProvider(model=self.model or "gemini-pro")
+                self._llm_provider = GeminiLLMProvider(model=model)
             elif self.provider == "groq":
-                self._llm_provider = GroqLLMProvider(model=self.model or "llama-3.3-70b-versatile")
+                self._llm_provider = GroqLLMProvider(model=model)
             else:
                 raise ValueError(f"Unknown provider: {self.provider}")
         return self._llm_provider
