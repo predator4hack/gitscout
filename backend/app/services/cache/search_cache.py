@@ -17,6 +17,8 @@ class CachedSearch:
     total_found: int
     created_at: float
     last_accessed: float
+    jd_spec: Optional[Dict[str, Any]] = None
+    jd_text: Optional[str] = None
 
 
 class SearchCache:
@@ -65,7 +67,9 @@ class SearchCache:
         self,
         candidates: List[Any],
         query: str,
-        total_found: int
+        total_found: int,
+        jd_spec: Optional[Dict[str, Any]] = None,
+        jd_text: Optional[str] = None
     ) -> str:
         """
         Create a new search session with cached results.
@@ -74,6 +78,8 @@ class SearchCache:
             candidates: List of candidate objects to cache
             query: The search query used
             total_found: Total number of candidates found
+            jd_spec: Job description specification dict (for chat refinement)
+            jd_text: Original job description text (for chat refinement)
 
         Returns:
             Session ID for retrieving pages
@@ -87,7 +93,9 @@ class SearchCache:
             query=query,
             total_found=total_found,
             created_at=now,
-            last_accessed=now
+            last_accessed=now,
+            jd_spec=jd_spec,
+            jd_text=jd_text
         )
 
         logger.info(f"Created session {session_id[:8]}... with {len(candidates)} candidates")
@@ -163,7 +171,42 @@ class SearchCache:
             "candidates": cached.candidates,
             "query": cached.query,
             "total_found": cached.total_found,
+            "jd_spec": cached.jd_spec,
+            "jd_text": cached.jd_text,
         }
+
+    def save_session_data(self, session_id: str, data: Dict[str, Any]) -> bool:
+        """
+        Update an existing session with new data.
+
+        Args:
+            session_id: The session ID to update
+            data: Dict with fields to update (candidates, jd_spec, jd_text, etc.)
+
+        Returns:
+            True if session was updated, False if not found
+        """
+        cached = self._cache.get(session_id)
+        if cached is None:
+            logger.warning(f"Cannot update session - not found: {session_id[:8]}...")
+            return False
+
+        # Update last accessed time
+        cached.last_accessed = time.time()
+
+        # Update fields if provided
+        if "candidates" in data:
+            cached.candidates = data["candidates"]
+            cached.total_found = len(data["candidates"])
+        if "jd_spec" in data:
+            cached.jd_spec = data["jd_spec"]
+        if "jd_text" in data:
+            cached.jd_text = data["jd_text"]
+        if "query" in data:
+            cached.query = data["query"]
+
+        logger.info(f"Updated session {session_id[:8]}... with {len(data)} fields")
+        return True
 
     def delete_session(self, session_id: str) -> bool:
         """Delete a session from cache"""

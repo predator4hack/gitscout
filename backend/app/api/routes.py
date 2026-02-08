@@ -145,7 +145,9 @@ async def search_via_repos(request: SearchRequest):
         session_id = cache.create_session(
             candidates=candidates,
             query=query_str,
-            total_found=len(candidates)
+            total_found=len(candidates),
+            jd_spec=spec.model_dump(),
+            jd_text=request.jd_text
         )
 
         # 7. Get first page
@@ -323,7 +325,9 @@ async def search_via_repos_stream(request: SearchRequest):
             session_id = cache.create_session(
                 candidates=candidates,
                 query=query_str,
-                total_found=len(candidates)
+                total_found=len(candidates),
+                jd_spec=spec.model_dump(),
+                jd_text=request.jd_text
             )
 
             yield f"data: {json.dumps({'event': 'step', 'step': 'prepare', 'progress': 95, 'message': 'Results cached'})}\n\n"

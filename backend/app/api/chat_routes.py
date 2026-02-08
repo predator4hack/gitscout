@@ -21,7 +21,11 @@ from app.services.chat.query_modifier import get_query_modifier
 from app.services.cache.search_cache import get_search_cache
 from app.services.filtering.candidate_filter import filter_candidates
 from app.services.matching.repo_pipeline import run_repo_contributors_pipeline
+from app.services.matching.query_generator import generate_repo_queries
+from app.services.matching.ranker import rank_candidates
+from app.services.github.client import GitHubClient
 from app.services.firebase.auth import CurrentUser, FirebaseUser
+from app.config import config
 
 logger = logging.getLogger("gitscout.chat")
 
@@ -257,7 +261,14 @@ async def answer_clarification(
 
         # Get session data
         session_data = search_cache.get_session_data(conversation.session_id)
+        logger.info(
+            f"Session data retrieval - session: {conversation.session_id[:8]}..., "
+            f"found: {session_data is not None}, "
+            f"keys: {list(session_data.keys()) if session_data else 'N/A'}"
+        )
+
         if not session_data:
+            logger.error(f"Session {conversation.session_id} not found in cache")
             raise HTTPException(
                 status_code=404,
                 detail=f"Search session {conversation.session_id} not found",
@@ -267,16 +278,19 @@ async def answer_clarification(
         from app.models.jd_spec import GitScoutJDSpec
         original_spec_dict = session_data.get("jd_spec")
         if not original_spec_dict:
+            logger.error(
+                f"jd_spec missing from session {conversation.session_id[:8]}... "
+                f"Available keys: {list(session_data.keys())}"
+            )
             raise HTTPException(
                 status_code=400,
-                detail="Original search specification not found in session",
+                detail="Original search specification not found in session. Please start a new search.",
             )
 
         original_spec = GitScoutJDSpec(**original_spec_dict)
         original_jd = session_data.get("jd_text", "")
 
         # Use QueryModifier to update the spec
-        from app.config import config
         query_modifier = get_query_modifier(
             provider=config.LLM_PROVIDER,
             model=config.LLM_MODEL or None
@@ -289,20 +303,42 @@ async def answer_clarification(
 
         logger.info(f"Updated spec based on user answers: {updated_spec.model_dump()}")
 
-        result = await run_repo_contributors_pipeline(
-            jd_spec=updated_spec,
-            provider=config.LLM_PROVIDER,
-            model=config.LLM_MODEL,
-            max_candidates=config.SEARCH_MAX_CANDIDATES,
+        # Generate new queries from updated spec
+        queries = generate_repo_queries(updated_spec)
+        if not queries:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not generate search queries from updated specification"
+            )
+
+        # Run pipeline with updated spec
+        github_client = GitHubClient()
+        enriched_users, contrib_scores = await run_repo_contributors_pipeline(
+            spec=updated_spec,
+            queries=queries,
+            github_client=github_client,
+            max_repos=config.MAX_REPOS,
+            contributors_per_repo=config.CONTRIBUTORS_PER_REPO
         )
 
+        # Parse user data and rank candidates
+        users = []
+        for user_node in enriched_users:
+            if user_node:
+                user_data = github_client.parse_user_data(user_node)
+                login = user_data.get("login", "")
+                user_data["contrib_score_seed"] = contrib_scores.get(login, 0)
+                users.append(user_data)
+
+        candidates = rank_candidates(users, original_jd)
+
         # Update session cache with new results
-        session_data["candidates"] = [c.model_dump() for c in result.candidates]
+        session_data["candidates"] = [c.model_dump() for c in candidates]
         session_data["jd_spec"] = updated_spec.model_dump()
         search_cache.save_session_data(conversation.session_id, session_data)
 
         # Save confirmation message
-        confirmation_text = f"Search refined based on your preferences. Found {len(result.candidates)} candidates."
+        confirmation_text = f"Search refined based on your preferences. Found {len(candidates)} candidates."
         confirmation_message = ChatMessage(
             conversation_id=request.conversation_id,
             role=MessageRole.ASSISTANT,
@@ -320,13 +356,13 @@ async def answer_clarification(
 
         logger.info(
             f"Clarification answers processed - session: {conversation.session_id}, "
-            f"candidates: {len(result.candidates)}"
+            f"candidates: {len(candidates)}"
         )
 
         return {
             "status": "success",
             "session_id": conversation.session_id,
-            "total_found": len(result.candidates),
+            "total_found": len(candidates),
             "message": confirmation_text,
         }
 
