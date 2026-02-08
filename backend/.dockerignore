@@ -1,0 +1,9 @@
+.env
+.env.example
+serviceAccountKey.json
+serviceKeyAccount.json
+.venv
+__pycache__
+*.pyc
+.git
+tests/
