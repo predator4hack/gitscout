@@ -49,12 +49,12 @@ async def _retry_request(
                     f"retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})"
                 )
                 await asyncio.sleep(delay)
-        except (httpx.ConnectTimeout, httpx.ReadTimeout) as e:
+        except (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.RemoteProtocolError) as e:
             last_exception = e
             if attempt < max_retries:
                 delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
                 logger.warning(
-                    f"Request timed out, retrying in {delay:.1f}s "
+                    f"Request failed ({type(e).__name__}), retrying in {delay:.1f}s "
                     f"(attempt {attempt + 1}/{max_retries})"
                 )
                 await asyncio.sleep(delay)

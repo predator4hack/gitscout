@@ -1,11 +1,12 @@
 import logging
 import json
 from typing import Optional, AsyncGenerator, Callable, Awaitable
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Body
 from starlette.responses import StreamingResponse
 from ..config import config
 from ..models.requests import SearchRequest, CandidateFilters
 from ..models.responses import SearchResponse, PaginatedSearchResponse
+from ..models.candidate_skills import SkillsAnalysisRequest, CandidateSkillsAnalysis
 from ..services.github.client import GitHubClient
 from ..services.matching.query_generator import generate_query, generate_jd_spec, generate_repo_queries
 from ..services.matching.repo_pipeline import run_repo_contributors_pipeline
@@ -13,6 +14,8 @@ from ..services.matching.ranker import rank_candidates
 from ..services.cache.search_cache import get_search_cache
 from ..services.filtering.candidate_filter import filter_candidates
 from ..services.firebase import is_firebase_initialized
+from ..services.skills.skills_cache import get_skills_cache
+from ..services.skills.skills_analyzer import SkillsAnalyzer
 
 # Type alias for progress callback
 ProgressCallback = Callable[[str, int, str], Awaitable[None]]
@@ -111,7 +114,7 @@ async def search_via_repos(request: SearchRequest):
         logger.debug(f"Queries: {queries[:3]}")
 
         if not queries:
-            raise ValueError("Could not generate search queries from job description")
+            raise ValueError("Could not generate search queries. Please include specific programming languages or technologies (e.g., 'Python developer with Django experience').")
 
         # 3. Run pipeline
         github_client = GitHubClient()
@@ -272,7 +275,7 @@ async def search_via_repos_stream(request: SearchRequest):
 
             queries = generate_repo_queries(spec)
             if not queries:
-                yield f"data: {json.dumps({'event': 'error', 'message': 'Could not generate search queries from job description'})}\n\n"
+                yield f"data: {json.dumps({'event': 'error', 'message': 'Could not generate search queries. Please include specific programming languages or technologies (e.g., Python developer with Django experience).'})}\n\n"
                 return
 
             yield f"data: {json.dumps({'event': 'step', 'step': 'search', 'progress': 25, 'message': f'Generated {len(queries)} search queries'})}\n\n"
@@ -343,3 +346,112 @@ async def search_via_repos_stream(request: SearchRequest):
             "X-Accel-Buffering": "no"
         }
     )
+
+
+@router.post("/candidate/skills", response_model=CandidateSkillsAnalysis)
+async def get_candidate_skills(request: SkillsAnalysisRequest):
+    """
+    Get skills analysis for a candidate.
+
+    Uses LLM to analyze a candidate's GitHub profile and generate
+    a structured skills assessment including domain expertise,
+    technical skills, and behavioral patterns.
+
+    Results are cached for 30 minutes to avoid repeated LLM calls.
+    """
+    logger.info(f"POST /candidate/skills - login: {request.login}, session: {request.session_id[:8]}...")
+
+    try:
+        # Check skills cache first (unless force refresh)
+        skills_cache = get_skills_cache()
+
+        if not request.force_refresh:
+            cached = skills_cache.get(request.session_id, request.login)
+            if cached:
+                logger.info(f"Returning cached skills analysis for {request.login}")
+                return cached
+
+        # Get candidate data from search cache
+        search_cache = get_search_cache()
+        session_data = search_cache.get_session_data(request.session_id)
+
+        if session_data is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Session not found or expired. Please perform a new search."
+            )
+
+        # Find the candidate in cached results
+        # Note: candidates are Pydantic Candidate objects, not dicts
+        candidate_data = None
+        for candidate in session_data["candidates"]:
+            # Handle both Pydantic objects and dicts
+            candidate_login = candidate.login if hasattr(candidate, 'login') else candidate.get("login")
+            if candidate_login == request.login:
+                candidate_data = candidate
+                break
+
+        if candidate_data is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Candidate '{request.login}' not found in session"
+            )
+
+        # We need the full user data for analysis. The cached candidates have limited data.
+        # Fetch fresh user data from GitHub
+        github_client = GitHubClient()
+
+        # Search for the specific user to get their full profile
+        search_results = await github_client.search_users(
+            query=f"user:{request.login}",
+            limit=1
+        )
+
+        if not search_results.get("nodes") or len(search_results["nodes"]) == 0:
+            raise HTTPException(
+                status_code=404,
+                detail=f"User '{request.login}' not found on GitHub"
+            )
+
+        user_node = search_results["nodes"][0]
+        if not user_node:
+            raise HTTPException(
+                status_code=404,
+                detail=f"User '{request.login}' profile could not be loaded"
+            )
+
+        # Parse user data
+        user_data = github_client.parse_user_data(user_node)
+
+        # Create skills analyzer with the configured LLM provider
+        from ..services.llm.gemini import GeminiLLMProvider
+        from ..services.llm.groq import GroqLLMProvider
+        import os
+
+        # Use the same provider logic as other endpoints
+        if os.getenv("GROQ_API_KEY"):
+            llm_provider = GroqLLMProvider()
+        elif os.getenv("GEMINI_API_KEY"):
+            llm_provider = GeminiLLMProvider()
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail="No LLM provider configured (set GROQ_API_KEY or GEMINI_API_KEY)"
+            )
+
+        analyzer = SkillsAnalyzer(llm_provider)
+
+        # Generate skills analysis
+        analysis = await analyzer.analyze(user_data)
+
+        # Cache the result
+        skills_cache.set(request.session_id, request.login, analysis)
+
+        logger.info(f"Generated skills analysis for {request.login}")
+        return analysis
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"POST /candidate/skills error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to analyze skills: {str(e)}")

@@ -138,3 +138,24 @@ class MockLLMProvider(LLMProvider):
         }
         logger.info(f"Generated JD spec: languages={spec['languages']}, domains={spec['core_domains']}, keywords={spec['core_keywords']}")
         return spec
+
+    async def rewrite_vague_query(self, jd_text: str) -> str:
+        """Mock implementation - just returns the original text since we can't actually rewrite"""
+        logger.info("Mock provider cannot rewrite queries, returning original text")
+        return jd_text
+
+    async def generate_skills_analysis(self, prompt: str) -> str:
+        """Generate mock skills analysis JSON"""
+        logger.info("Generating mock skills analysis")
+        return '''{
+            "profile_summary": "Experienced developer with strong programming skills.",
+            "domain_expertise": [
+                {"name": "Software Development", "level": "Advanced", "evidence": "Multiple repositories", "repositories": []}
+            ],
+            "technical_expertise": [
+                {"name": "Python", "level": "Advanced", "years_active": null, "evidence": null, "repositories": []}
+            ],
+            "behavioral_patterns": [
+                {"name": "Open Source Contributor", "description": "Active in open source", "evidence": "Public repositories"}
+            ]
+        }'''

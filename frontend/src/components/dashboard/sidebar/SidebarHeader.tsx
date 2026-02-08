@@ -2,14 +2,15 @@ import { Icon } from '../../shared/Icon';
 
 interface SidebarHeaderProps {
   onClose: () => void;
+  title?: string;
 }
 
-export function SidebarHeader({ onClose }: SidebarHeaderProps) {
+export function SidebarHeader({ onClose, title }: SidebarHeaderProps) {
   return (
     <div className="h-12 border-b border-white/[0.06] flex items-center justify-between px-4 flex-shrink-0">
       <div className="flex items-center gap-2 text-gs-text-main text-xs font-semibold">
         <Icon icon="lucide:bot" className="w-4 h-4 text-gs-purple" />
-        AI Assistant
+        {title || 'AI Assistant'}
       </div>
       <button
         onClick={onClose}

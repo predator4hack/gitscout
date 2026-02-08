@@ -6,6 +6,9 @@ from ..llm.ollama import OllamaLLMProvider
 from ...models.jd_spec import GitScoutJDSpec
 from typing import Optional, List
 from datetime import datetime, timedelta
+import logging
+
+logger = logging.getLogger("gitscout.query_generator")
 
 
 def _get_llm_provider(provider: str, model: Optional[str] = None) -> BaseLLMProvider:
@@ -75,9 +78,43 @@ async def generate_jd_spec(jd_text: str, provider: str, model: Optional[str] = N
 
     try:
         spec_dict = await llm_provider.generate_jd_spec(jd_text)
+
+        # Check if LLM returned empty critical fields - attempt query rewriting
+        if not spec_dict.get('languages') and not spec_dict.get('core_keywords'):
+            logger.warning("LLM returned empty languages and keywords, attempting query rewrite")
+
+            # Ask LLM to rewrite the vague query into something more specific
+            try:
+                rewritten_jd = await llm_provider.rewrite_vague_query(jd_text)
+                logger.info(f"Rewritten JD: {rewritten_jd[:200]}...")
+
+                # Re-extract spec from rewritten JD
+                spec_dict = await llm_provider.generate_jd_spec(rewritten_jd)
+                logger.info(f"After rewrite: languages={spec_dict.get('languages')}, keywords={spec_dict.get('core_keywords')}")
+            except Exception as rewrite_error:
+                logger.warning(f"Query rewrite failed: {rewrite_error}")
+
+            # If still empty after rewrite, use mock as ultimate fallback
+            if not spec_dict.get('languages') and not spec_dict.get('core_keywords'):
+                logger.warning("Query rewrite also failed, using mock fallback")
+                fallback = MockLLMProvider()
+                fallback_spec = await fallback.generate_jd_spec(jd_text)
+
+                # Merge fallback data into spec (only fill empty fields)
+                if not spec_dict.get('languages') and fallback_spec.get('languages'):
+                    spec_dict['languages'] = fallback_spec['languages']
+                if not spec_dict.get('core_domains') and fallback_spec.get('core_domains'):
+                    spec_dict['core_domains'] = fallback_spec['core_domains']
+                if not spec_dict.get('core_keywords') and fallback_spec.get('core_keywords'):
+                    spec_dict['core_keywords'] = fallback_spec['core_keywords']
+                if not spec_dict.get('nice_keywords') and fallback_spec.get('nice_keywords'):
+                    spec_dict['nice_keywords'] = fallback_spec['nice_keywords']
+
+                logger.info(f"After mock fallback: languages={spec_dict.get('languages')}, keywords={spec_dict.get('core_keywords')}")
+
         return GitScoutJDSpec(**spec_dict)
     except Exception as e:
-        print(f"LLM provider {provider} failed for JD spec: {e}. Falling back to mock.")
+        logger.error(f"LLM provider {provider} failed for JD spec: {e}. Falling back to mock.")
         fallback = MockLLMProvider()
         spec_dict = await fallback.generate_jd_spec(jd_text)
         return GitScoutJDSpec(**spec_dict)
@@ -145,6 +182,31 @@ def generate_repo_queries(spec: GitScoutJDSpec) -> List[str]:
             query = f"language:{lang} {base_filter_str}"
             if len(query) <= 256:
                 queries.append(query)
+
+    # Strategy 5: Domain-only queries (when no languages available)
+    if not queries and spec.core_domains:
+        for domain in spec.core_domains[:3]:
+            query = f"topic:{domain} {base_filter_str}"
+            if len(query) <= 256 and query not in queries:
+                queries.append(query)
+
+    # Strategy 6: Keyword-only queries (when no languages or domains)
+    if not queries and spec.core_keywords:
+        for i in range(0, min(len(spec.core_keywords), 6), 2):
+            keywords = spec.core_keywords[i:i + 2]
+            if keywords:
+                keyword_str = " ".join(keywords)
+                query = f"{keyword_str} {base_filter_str}"
+                if len(query) <= 256 and query not in queries:
+                    queries.append(query)
+
+    # Strategy 7: Ultimate fallback - generic active repos query
+    if not queries:
+        logger.warning("All query strategies failed, using ultimate fallback")
+        # Search for actively maintained repos with good star count
+        query = f"stars:>100 {base_filter_str}"
+        if len(query) <= 256:
+            queries.append(query)
 
     # Dedupe and limit
     unique_queries = list(dict.fromkeys(queries))

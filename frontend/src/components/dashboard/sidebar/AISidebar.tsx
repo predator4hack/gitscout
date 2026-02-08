@@ -1,13 +1,16 @@
+import { useMemo } from 'react';
 import { SidebarHeader } from './SidebarHeader';
 import { ChatArea } from './ChatArea';
 import { ChatInput } from './ChatInput';
 import { useChat } from '../../../hooks/useChat';
 import type { SuggestionChip, FilterProposal } from '../../../types/dashboard';
+import type { CandidateContext } from '../../../types/candidate';
 
 interface AISidebarProps {
   sessionId: string;
   onClose: () => void;
   onFiltersApplied?: (filters: FilterProposal) => void;
+  initialContext?: CandidateContext | null;
 }
 
 const DEFAULT_SUGGESTIONS: SuggestionChip[] = [
@@ -28,7 +31,7 @@ const DEFAULT_SUGGESTIONS: SuggestionChip[] = [
   },
 ];
 
-export function AISidebar({ sessionId, onClose, onFiltersApplied }: AISidebarProps) {
+export function AISidebar({ sessionId, onClose, onFiltersApplied, initialContext }: AISidebarProps) {
   const {
     messages,
     isLoading,
@@ -41,6 +44,31 @@ export function AISidebar({ sessionId, onClose, onFiltersApplied }: AISidebarPro
     onFiltersApplied,
   });
 
+  // Generate suggestions based on whether we have candidate context
+  const suggestions = useMemo(() => {
+    if (initialContext) {
+      const candidateName = initialContext.name || initialContext.login;
+      return [
+        {
+          id: 'ctx-1',
+          label: 'Draft outreach email',
+          prompt: `Draft a recruitment outreach email to ${candidateName} (@${initialContext.login})`
+        },
+        {
+          id: 'ctx-2',
+          label: 'Summarize experience',
+          prompt: `Summarize ${candidateName}'s experience and key skills`
+        },
+        {
+          id: 'ctx-3',
+          label: 'Compare to job',
+          prompt: `How well does ${candidateName} match our job requirements?`
+        },
+      ];
+    }
+    return DEFAULT_SUGGESTIONS;
+  }, [initialContext]);
+
   const handleConfirmFilter = async (messageId: string, confirmed: boolean) => {
     await confirmFilter(messageId, confirmed);
   };
@@ -51,7 +79,10 @@ export function AISidebar({ sessionId, onClose, onFiltersApplied }: AISidebarPro
 
   return (
     <>
-      <SidebarHeader onClose={onClose} />
+      <SidebarHeader
+        onClose={onClose}
+        title={initialContext ? `Chat about @${initialContext.login}` : undefined}
+      />
 
       {error && (
         <div className="mx-4 mt-4 p-3 bg-red-100 border border-red-300 text-red-800 rounded-lg text-sm">
@@ -75,7 +106,7 @@ export function AISidebar({ sessionId, onClose, onFiltersApplied }: AISidebarPro
       />
 
       <ChatInput
-        suggestions={DEFAULT_SUGGESTIONS}
+        suggestions={suggestions}
         onSendMessage={sendMessage}
         disabled={isLoading}
       />

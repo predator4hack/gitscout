@@ -4,13 +4,21 @@ import type { DashboardCandidate } from '../../../types/dashboard';
 interface TableRowProps {
   candidate: DashboardCandidate;
   onStarToggle: (id: string) => void;
+  onCandidateClick?: (candidate: DashboardCandidate) => void;
 }
 
 const MAX_VISIBLE_REPOS = 3;
 
-export function TableRow({ candidate, onStarToggle }: TableRowProps) {
+export function TableRow({ candidate, onStarToggle, onCandidateClick }: TableRowProps) {
   const visibleRepos = candidate.repositories.slice(0, MAX_VISIBLE_REPOS);
   const remainingCount = candidate.repositories.length - MAX_VISIBLE_REPOS;
+
+  const handleUsernameClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (onCandidateClick) {
+      onCandidateClick(candidate);
+    }
+  };
 
   return (
     <tr className="dashboard-row-hover group transition-colors">
@@ -31,14 +39,12 @@ export function TableRow({ candidate, onStarToggle }: TableRowProps) {
       {/* Username Cell */}
       <td className="py-4 px-4 align-top">
         <div className="flex items-center gap-3">
-          <a
-            href={candidate.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gs-text-main font-semibold hover:underline"
+          <button
+            onClick={handleUsernameClick}
+            className="text-gs-text-main font-semibold hover:underline hover:text-gs-purple transition-colors text-left"
           >
             @{candidate.login}
-          </a>
+          </button>
         </div>
       </td>
 

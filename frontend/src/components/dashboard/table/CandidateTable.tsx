@@ -13,6 +13,7 @@ interface CandidateTableProps {
     pagination: PaginationState;
     onStarToggle: (id: string) => void;
     onPageChange: (page: number) => void;
+    onCandidateClick?: (candidate: DashboardCandidate) => void;
 }
 
 export function CandidateTable({
@@ -21,6 +22,7 @@ export function CandidateTable({
     pagination,
     onStarToggle,
     onPageChange,
+    onCandidateClick,
 }: CandidateTableProps) {
     return (
         <>
@@ -34,6 +36,7 @@ export function CandidateTable({
                                 key={candidate.id}
                                 candidate={candidate}
                                 onStarToggle={onStarToggle}
+                                onCandidateClick={onCandidateClick}
                             />
                         ))}
                     </tbody>

@@ -4,17 +4,26 @@ import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { DashboardToolbar } from '../components/dashboard/toolbar/DashboardToolbar';
 import { CandidateTable } from '../components/dashboard/table/CandidateTable';
 import { AISidebar } from '../components/dashboard/sidebar/AISidebar';
+import { CandidateWindow } from '../components/dashboard/candidate-window';
 import { TABLE_COLUMNS } from '../data/mockDashboardData';
 import { useSearch } from '../contexts/SearchContext';
 import { fetchSearchPage } from '../api/search';
 import { mapCandidatesToDashboard } from '../utils/candidateMapper';
 import type { DashboardCandidate, PaginationState, FilterProposal } from '../types/dashboard';
 import type { CandidateFilters } from '../types';
+import type { CandidateContext } from '../types/candidate';
+
+type SidebarMode = 'none' | 'ai-chat' | 'candidate-window';
 
 export function DashboardPage() {
   const navigate = useNavigate();
   const { state: searchState } = useSearch();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Sidebar state - replaces simple isSidebarOpen boolean
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>('none');
+  const [selectedCandidate, setSelectedCandidate] = useState<DashboardCandidate | null>(null);
+  const [candidateContext, setCandidateContext] = useState<CandidateContext | null>(null);
+
   const [candidates, setCandidates] = useState<DashboardCandidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,13 +106,36 @@ export function DashboardPage() {
     }
   }, [searchState.sessionId, pagination.pageSize, filters]);
 
-  const handleCloseSidebar = useCallback(() => {
-    setIsSidebarOpen(false);
+  // Candidate click handler - opens candidate window
+  const handleCandidateClick = useCallback((candidate: DashboardCandidate) => {
+    setSelectedCandidate(candidate);
+    setSidebarMode('candidate-window');
+    setCandidateContext(null); // Clear any previous context
   }, []);
 
-  const handleToggleSidebar = useCallback(() => {
-    setIsSidebarOpen((prev) => !prev);
+  // Chat button in candidate window - opens AI sidebar with context
+  const handleOpenChatWithContext = useCallback((context: CandidateContext) => {
+    setCandidateContext(context);
+    setSidebarMode('ai-chat');
   }, []);
+
+  // Close sidebar
+  const handleCloseSidebar = useCallback(() => {
+    setSidebarMode('none');
+    setSelectedCandidate(null);
+    setCandidateContext(null);
+  }, []);
+
+  // Toggle AI sidebar (from toolbar)
+  const handleToggleSidebar = useCallback(() => {
+    if (sidebarMode === 'ai-chat') {
+      setSidebarMode('none');
+      setCandidateContext(null);
+    } else {
+      setSidebarMode('ai-chat');
+      setSelectedCandidate(null);
+    }
+  }, [sidebarMode]);
 
   const handleApplyFilters = useCallback((newFilters: CandidateFilters) => {
     setFilters(newFilters);
@@ -125,7 +157,8 @@ export function DashboardPage() {
     handleApplyFilters(candidateFilters);
 
     // Close the sidebar after applying filters
-    setIsSidebarOpen(false);
+    setSidebarMode('none');
+    setCandidateContext(null);
   }, [handleApplyFilters]);
 
   const handleToggleFilter = useCallback(() => {
@@ -168,9 +201,42 @@ export function DashboardPage() {
     ? searchState.jobDescription.slice(0, 50) + (searchState.jobDescription.length > 50 ? '...' : '')
     : 'Search Results';
 
+  // Determine sidebar width based on mode
+  const sidebarWidth = sidebarMode === 'candidate-window' ? 620 : 400;
+  const isSidebarOpen = sidebarMode !== 'none';
+
+  // Render the appropriate sidebar content
+  const renderSidebar = () => {
+    if (!searchState.sessionId) return null;
+
+    if (sidebarMode === 'candidate-window' && selectedCandidate) {
+      return (
+        <CandidateWindow
+          candidate={selectedCandidate}
+          sessionId={searchState.sessionId}
+          onClose={handleCloseSidebar}
+          onOpenChat={handleOpenChatWithContext}
+        />
+      );
+    }
+
+    if (sidebarMode === 'ai-chat') {
+      return (
+        <AISidebar
+          sessionId={searchState.sessionId}
+          onClose={handleCloseSidebar}
+          onFiltersApplied={handleFiltersAppliedFromChat}
+          initialContext={candidateContext}
+        />
+      );
+    }
+
+    return null;
+  };
+
   if (error) {
     return (
-      <DashboardLayout isSidebarOpen={false} sidebar={null}>
+      <DashboardLayout isSidebarOpen={false} sidebar={null} sidebarWidth={400}>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-red-500 mb-4">Error: {error}</p>
@@ -189,15 +255,8 @@ export function DashboardPage() {
   return (
     <DashboardLayout
       isSidebarOpen={isSidebarOpen}
-      sidebar={
-        searchState.sessionId ? (
-          <AISidebar
-            sessionId={searchState.sessionId}
-            onClose={handleCloseSidebar}
-            onFiltersApplied={handleFiltersAppliedFromChat}
-          />
-        ) : null
-      }
+      sidebar={renderSidebar()}
+      sidebarWidth={sidebarWidth}
     >
       <DashboardToolbar
         queryTitle={queryTitle}
@@ -220,6 +279,7 @@ export function DashboardPage() {
           pagination={pagination}
           onStarToggle={handleStarToggle}
           onPageChange={handlePageChange}
+          onCandidateClick={handleCandidateClick}
         />
       )}
     </DashboardLayout>

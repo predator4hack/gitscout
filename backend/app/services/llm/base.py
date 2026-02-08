@@ -1,5 +1,13 @@
+import random
+import asyncio
+import logging
+import httpx
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Dict, Any, Callable, TypeVar, Awaitable
+
+logger = logging.getLogger("gitscout.llm")
+
+T = TypeVar('T')
 
 
 class LLMProvider(ABC):
@@ -95,6 +103,53 @@ IMPORTANT: Return ONLY valid JSON, no explanation or markdown code blocks.
 
 JSON:"""
 
+    QUERY_REWRITE_PROMPT_TEMPLATE = """You are a technical recruiter assistant. The following job description is too vague to extract specific technologies.
+
+Your task: Rewrite this into a more specific job description by inferring the likely tech stack based on:
+- Industry context (e.g., fintech → Python, trading systems, financial APIs)
+- Role type (e.g., backend → databases, APIs, server frameworks)
+- Company hints (e.g., startup → modern stack, agile)
+
+Original job description:
+{jd_text}
+
+Rules:
+1. Add 2-3 specific programming languages that are commonly used in this context
+2. Add 3-5 specific frameworks, tools, or technologies
+3. Keep the original intent and requirements
+4. Be realistic - don't add unrelated technologies
+5. Return ONLY the rewritten job description, no explanation
+
+Rewritten job description:"""
+
+    async def _retry_request(
+        self,
+        request_func: Callable[[], Awaitable[T]],
+        max_retries: int = 3,
+        base_delay: float = 1.0
+    ) -> T:
+        """
+        Retry wrapper for LLM API calls with exponential backoff.
+
+        Handles transient network errors like connection drops and incomplete reads.
+        """
+        last_exception = None
+
+        for attempt in range(max_retries + 1):
+            try:
+                return await request_func()
+            except (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.RemoteProtocolError) as e:
+                last_exception = e
+                if attempt < max_retries:
+                    delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                    logger.warning(
+                        f"LLM request failed ({type(e).__name__}), retrying in {delay:.1f}s "
+                        f"(attempt {attempt + 1}/{max_retries})"
+                    )
+                    await asyncio.sleep(delay)
+
+        raise last_exception
+
     @abstractmethod
     async def generate_search_query(self, jd_text: str) -> str:
         """Generate a GitHub search query from job description text"""
@@ -103,4 +158,22 @@ JSON:"""
     @abstractmethod
     async def generate_jd_spec(self, jd_text: str) -> Dict[str, Any]:
         """Extract structured JD specification from job description text"""
+        pass
+
+    @abstractmethod
+    async def rewrite_vague_query(self, jd_text: str) -> str:
+        """Rewrite a vague job description into a more specific one with inferred technologies"""
+        pass
+
+    @abstractmethod
+    async def generate_skills_analysis(self, prompt: str) -> str:
+        """
+        Generate skills analysis for a candidate.
+
+        Args:
+            prompt: The full prompt including user data and instructions
+
+        Returns:
+            Raw LLM response (JSON string)
+        """
         pass

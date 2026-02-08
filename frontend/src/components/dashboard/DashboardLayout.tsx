@@ -4,12 +4,14 @@ interface DashboardLayoutProps {
     children: React.ReactNode;
     sidebar: React.ReactNode;
     isSidebarOpen: boolean;
+    sidebarWidth?: number;
 }
 
 export function DashboardLayout({
     children,
     sidebar,
     isSidebarOpen,
+    sidebarWidth = 400,
 }: DashboardLayoutProps) {
     return (
         <div className="h-screen w-screen flex flex-col overflow-hidden text-sm bg-gs-body text-gs-text-main">
@@ -25,9 +27,12 @@ export function DashboardLayout({
                     {children}
                 </main>
 
-                {/* AI Sidebar */}
+                {/* Sidebar */}
                 {isSidebarOpen && (
-                    <aside className="w-[400px] flex flex-col bg-gs-card border-l border-white/[0.06] flex-shrink-0">
+                    <aside
+                        className="flex flex-col bg-gs-card border-l border-white/[0.06] flex-shrink-0"
+                        style={{ width: `${sidebarWidth}px` }}
+                    >
                         {sidebar}
                     </aside>
                 )}

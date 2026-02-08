@@ -41,26 +41,28 @@ class GroqLLMProvider(LLMProvider):
             "Content-Type": "application/json"
         }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                url,
-                json=payload,
-                headers=headers,
-                timeout=30.0
-            )
-            response.raise_for_status()
+        async def make_request():
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    url,
+                    json=payload,
+                    headers=headers,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+                return response.json()
 
-            data = response.json()
-            logger.debug(f"Groq API response: {data}")
+        data = await self._retry_request(make_request)
+        logger.debug(f"Groq API response: {data}")
 
-            # Extract text from OpenAI-compatible response
-            try:
-                query = data["choices"][0]["message"]["content"].strip()
-                logger.info(f"Generated search query: {query}")
-                return query
-            except (KeyError, IndexError) as e:
-                logger.error(f"Failed to parse Groq response: {e}")
-                raise ValueError(f"Failed to parse Groq response: {e}")
+        # Extract text from OpenAI-compatible response
+        try:
+            query = data["choices"][0]["message"]["content"].strip()
+            logger.info(f"Generated search query: {query}")
+            return query
+        except (KeyError, IndexError) as e:
+            logger.error(f"Failed to parse Groq response: {e}")
+            raise ValueError(f"Failed to parse Groq response: {e}")
 
     async def generate_jd_spec(self, jd_text: str) -> Dict[str, Any]:
         """Generate structured JD spec using Groq API"""
@@ -85,22 +87,112 @@ class GroqLLMProvider(LLMProvider):
             "Content-Type": "application/json"
         }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                url,
-                json=payload,
-                headers=headers,
-                timeout=30.0
-            )
-            response.raise_for_status()
-            data = response.json()
-            logger.debug(f"Groq JD spec API response: {data}")
+        async def make_request():
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    url,
+                    json=payload,
+                    headers=headers,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+                return response.json()
 
-            try:
-                content = data["choices"][0]["message"]["content"].strip()
-                spec = json.loads(content)
-                logger.info(f"Generated JD spec: languages={spec.get('languages')}, domains={spec.get('core_domains')}, keywords={spec.get('core_keywords')}")
-                return spec
-            except (KeyError, IndexError, json.JSONDecodeError) as e:
-                logger.error(f"Failed to parse Groq JD spec response: {e}")
-                raise ValueError(f"Failed to parse Groq JD spec response: {e}")
+        data = await self._retry_request(make_request)
+        logger.debug(f"Groq JD spec API response: {data}")
+
+        try:
+            content = data["choices"][0]["message"]["content"].strip()
+            spec = json.loads(content)
+            logger.info(f"Generated JD spec: languages={spec.get('languages')}, domains={spec.get('core_domains')}, keywords={spec.get('core_keywords')}")
+            return spec
+        except (KeyError, IndexError, json.JSONDecodeError) as e:
+            logger.error(f"Failed to parse Groq JD spec response: {e}")
+            raise ValueError(f"Failed to parse Groq JD spec response: {e}")
+
+    async def rewrite_vague_query(self, jd_text: str) -> str:
+        """Rewrite a vague job description into a more specific one using Groq API"""
+        logger.info(f"Rewriting vague query using model: {self.model}")
+        logger.debug(f"Original JD text length: {len(jd_text)} chars")
+
+        url = f"{self.base_url}/chat/completions"
+        prompt = self.QUERY_REWRITE_PROMPT_TEMPLATE.format(jd_text=jd_text)
+
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.4,
+            "max_tokens": 500
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+
+        async def make_request():
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    url,
+                    json=payload,
+                    headers=headers,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+                return response.json()
+
+        data = await self._retry_request(make_request)
+        logger.debug(f"Groq rewrite API response: {data}")
+
+        try:
+            rewritten = data["choices"][0]["message"]["content"].strip()
+            logger.info(f"Rewritten JD (first 200 chars): {rewritten[:200]}...")
+            return rewritten
+        except (KeyError, IndexError) as e:
+            logger.error(f"Failed to parse Groq rewrite response: {e}")
+            raise ValueError(f"Failed to parse Groq rewrite response: {e}")
+
+    async def generate_skills_analysis(self, prompt: str) -> str:
+        """Generate skills analysis using Groq API"""
+        logger.info(f"Generating skills analysis using model: {self.model}")
+
+        url = f"{self.base_url}/chat/completions"
+
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 1500,
+            "response_format": {"type": "json_object"}
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+
+        async def make_request():
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    url,
+                    json=payload,
+                    headers=headers,
+                    timeout=60.0
+                )
+                response.raise_for_status()
+                return response.json()
+
+        data = await self._retry_request(make_request)
+        logger.debug(f"Groq skills analysis API response received")
+
+        try:
+            content = data["choices"][0]["message"]["content"].strip()
+            logger.info(f"Generated skills analysis (first 200 chars): {content[:200]}...")
+            return content
+        except (KeyError, IndexError) as e:
+            logger.error(f"Failed to parse Groq skills analysis response: {e}")
+            raise ValueError(f"Failed to parse Groq skills analysis response: {e}")
