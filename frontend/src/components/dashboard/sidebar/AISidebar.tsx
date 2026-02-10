@@ -109,6 +109,7 @@ export function AISidebar({ sessionId, onClose, onFiltersApplied, initialContext
         onAnswerClarification={handleAnswerClarification}
         onAnswerMultiClarification={handleAnswerMultiClarification}
         disabled={isLoading}
+        isLoading={isLoading}
       />
 
       <ChatInput
@@ -116,14 +117,6 @@ export function AISidebar({ sessionId, onClose, onFiltersApplied, initialContext
         onSendMessage={sendMessage}
         disabled={isLoading}
       />
-
-      {isLoading && (
-        <div className="absolute inset-0 bg-black/20 flex items-center justify-center pointer-events-none">
-          <div className="bg-white rounded-lg px-4 py-2 shadow-lg">
-            <p className="text-sm text-gray-700">Thinking...</p>
-          </div>
-        </div>
-      )}
     </>
   );
 }

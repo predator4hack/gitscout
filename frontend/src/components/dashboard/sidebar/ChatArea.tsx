@@ -4,6 +4,7 @@ import { FilterProposalMessage } from './FilterProposalMessage';
 import { ClarificationMessage } from './ClarificationMessage';
 import { MultiClarificationMessage } from './MultiClarificationMessage';
 import { EmailDraftMessage } from './EmailDraftMessage';
+import { LoadingIndicator } from './LoadingIndicator';
 
 interface ChatAreaProps {
   messages: ChatMessageType[];
@@ -11,6 +12,7 @@ interface ChatAreaProps {
   onAnswerClarification: (answer: string) => void;
   onAnswerMultiClarification?: (messageId: string, answers: Record<string, string>) => void;
   disabled?: boolean;
+  isLoading?: boolean;
 }
 
 export function ChatArea({
@@ -18,15 +20,16 @@ export function ChatArea({
   onConfirmFilter,
   onAnswerClarification,
   onAnswerMultiClarification,
-  disabled = false
+  disabled = false,
+  isLoading = false
 }: ChatAreaProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive or loading state changes
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isLoading]);
 
   const handleCopyMessage = (messageId: string, content: string) => {
     navigator.clipboard.writeText(content);
@@ -143,6 +146,17 @@ export function ChatArea({
               {renderMessage(message)}
             </div>
           ))}
+
+          {/* Loading indicator */}
+          {isLoading && (
+            <div className="flex flex-col items-start max-w-[95%] animate-in fade-in duration-200">
+              <div className="text-[10px] text-zinc-500 mb-1 ml-1">AI Assistant</div>
+              <div className="bg-[#1E2024] border border-white/5 rounded-xl rounded-tl-sm p-3 shadow-lg">
+                <LoadingIndicator />
+              </div>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </>
       )}
