@@ -34,12 +34,15 @@ const DEFAULT_SUGGESTIONS: SuggestionChip[] = [
 export function AISidebar({ sessionId, onClose, onFiltersApplied, initialContext }: AISidebarProps) {
   const {
     messages,
+    conversationId,
     isLoading,
     error,
     sendMessage,
     confirmFilter,
     answerMultiClarification,
     clearError,
+    clearConversation,
+    loadConversation,
   } = useChat({
     sessionId,
     onFiltersApplied,
@@ -82,6 +85,20 @@ export function AISidebar({ sessionId, onClose, onFiltersApplied, initialContext
     await answerMultiClarification(messageId, answers);
   };
 
+  const handleClearChat = () => {
+    if (window.confirm('Clear this conversation? This cannot be undone.')) {
+      clearConversation();
+    }
+  };
+
+  const handleLoadConversation = async (convId: string) => {
+    await loadConversation(convId);
+  };
+
+  const handleNewConversation = () => {
+    clearConversation();
+  };
+
   return (
     <>
       <SidebarHeader
@@ -115,6 +132,11 @@ export function AISidebar({ sessionId, onClose, onFiltersApplied, initialContext
       <ChatInput
         suggestions={suggestions}
         onSendMessage={sendMessage}
+        onClearChat={handleClearChat}
+        searchId={sessionId}
+        conversationId={conversationId}
+        onLoadConversation={handleLoadConversation}
+        onNewConversation={handleNewConversation}
         disabled={isLoading}
       />
     </>

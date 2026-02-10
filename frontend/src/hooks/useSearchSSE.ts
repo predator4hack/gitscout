@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { config } from '../config';
+import { auth } from '../lib/firebase';
 
 export type SearchStep = 'analyze' | 'search' | 'rank' | 'prepare';
 
@@ -39,9 +40,25 @@ export function useSearchSSE(jobDescription: string, provider: string = config.d
 
     const fetchSSE = async () => {
       try {
+        // Get auth token - REQUIRED for authenticated endpoint
+        const user = auth.currentUser;
+        if (!user) {
+          setState(prev => ({
+            ...prev,
+            error: 'Please sign in to perform searches',
+            isComplete: true,
+          }));
+          return;
+        }
+
+        const token = await user.getIdToken();
+
         const response = await fetch(`${config.apiBaseUrl}/api/search/repos/stream`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
           body: JSON.stringify({
             jd_text: jobDescription,
             provider: provider,

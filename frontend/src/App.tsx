@@ -7,6 +7,7 @@ import { AuthPage } from './pages/AuthPage';
 import { SearchApp } from './pages/SearchApp';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProcessingPage } from './pages/ProcessingPage';
+import { HistoryPage } from './pages/HistoryPage';
 
 function App() {
   return (
@@ -22,6 +23,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/history"
+            element={
+              <ProtectedRoute>
+                <HistoryPage />
               </ProtectedRoute>
             }
           />

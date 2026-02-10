@@ -83,6 +83,7 @@ class MultiClarificationContent(BaseModel):
 class AnswerClarificationRequest(BaseModel):
     """Request to submit answers to clarification questions"""
     conversation_id: str = Field(..., description="Conversation ID")
+    job_search_id: str = Field(..., description="Job search ID (parent of conversation)")
     message_id: str = Field(..., description="Message ID containing the clarification questions")
     answers: Dict[str, str] = Field(..., description="Answers keyed by field_name")
 
@@ -124,12 +125,14 @@ class SendMessageRequest(BaseModel):
     """Request to send a chat message"""
     conversation_id: Optional[str] = Field(None, description="Existing conversation ID or None to create new")
     session_id: str = Field(..., description="Search session ID")
+    job_search_id: Optional[str] = Field(None, description="Job search ID (defaults to session_id for backward compatibility)")
     message: str = Field(..., description="User message text")
 
 
 class ConfirmFilterRequest(BaseModel):
     """Request to confirm or reject filter proposal"""
     conversation_id: str = Field(..., description="Conversation ID")
+    job_search_id: str = Field(..., description="Job search ID (parent of conversation)")
     message_id: str = Field(..., description="Message ID containing the filter proposal")
     confirmed: bool = Field(..., description="Whether filters are confirmed")
     modified_filters: Optional[FilterProposal] = Field(None, description="Modified filters if user adjusted them")

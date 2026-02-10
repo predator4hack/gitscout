@@ -10,6 +10,7 @@ import {
     confirmFilter as confirmFilterAPI,
     answerClarification as answerClarificationAPI,
     getConversationBySession,
+    getConversationHistory,
 } from "../api/chat";
 
 interface UseChatOptions {
@@ -32,6 +33,8 @@ interface UseChatReturn {
     ) => Promise<void>;
     answerMultiClarification: (messageId: string, answers: Record<string, string>) => Promise<void>;
     clearError: () => void;
+    clearConversation: () => void;
+    loadConversation: (conversationId: string) => Promise<void>;
 }
 
 /**
@@ -71,6 +74,17 @@ export function useChat(options: UseChatOptions): UseChatReturn {
             setIsLoading(true);
             setError(null);
 
+            // Optimistic update: Add user message immediately
+            const optimisticUserMessage: ChatMessage = {
+                conversation_id: conversationId || 'pending',
+                role: 'user',
+                type: 'text',
+                timestamp: new Date(),
+                tokens_used: 0,
+                text_content: message,
+            };
+            setMessages((prev) => [...prev, optimisticUserMessage]);
+
             try {
                 const request: SendMessageRequest = {
                     conversation_id: conversationId,
@@ -85,12 +99,22 @@ export function useChat(options: UseChatOptions): UseChatReturn {
                 setConversationState(response.state);
                 setRequiresUserAction(response.requires_user_action);
 
-                // Add new messages
-                setMessages((prev) => [...prev, ...response.messages]);
+                // Filter out user message from response (we already added it)
+                const assistantMessages = response.messages.filter(
+                    msg => msg.role !== 'user'
+                );
+
+                // Add only assistant messages
+                setMessages((prev) => [...prev, ...assistantMessages]);
             } catch (err) {
                 const errorMessage =
                     err instanceof Error ? err.message : "Failed to send message";
                 setError(errorMessage);
+
+                // Rollback: Remove optimistic message on error
+                setMessages((prev) =>
+                    prev.filter(msg => msg !== optimisticUserMessage)
+                );
             } finally {
                 setIsLoading(false);
             }
@@ -188,7 +212,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
                 const response = await answerClarificationAPI(
                     conversationId,
                     messageId,
-                    answers
+                    answers,
+                    sessionId
                 );
 
                 // Add confirmation message
@@ -220,11 +245,37 @@ export function useChat(options: UseChatOptions): UseChatReturn {
                 setIsLoading(false);
             }
         },
-        [conversationId, onFiltersApplied]
+        [conversationId, sessionId, onFiltersApplied]
     );
 
     const clearError = useCallback(() => {
         setError(null);
+    }, []);
+
+    const clearConversation = useCallback(() => {
+        setMessages([]);
+        setConversationId(undefined);
+        setConversationState("idle");
+        setRequiresUserAction(false);
+        setError(null);
+    }, []);
+
+    const loadConversation = useCallback(async (convId: string) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const history = await getConversationHistory(convId);
+            setConversationId(history.conversation_id);
+            setMessages(history.messages);
+            setConversationState(history.metadata.state);
+            setRequiresUserAction(false);
+        } catch (err) {
+            const errorMessage =
+                err instanceof Error ? err.message : "Failed to load conversation";
+            setError(errorMessage);
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
 
     return {
@@ -238,5 +289,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         confirmFilter,
         answerMultiClarification,
         clearError,
+        clearConversation,
+        loadConversation,
     };
 }

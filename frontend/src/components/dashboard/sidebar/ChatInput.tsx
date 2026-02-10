@@ -1,14 +1,29 @@
 import { useState, KeyboardEvent } from 'react';
 import { Icon } from '../../shared/Icon';
+import { ConversationDropdown } from './ConversationDropdown';
 import type { SuggestionChip } from '../../../types/dashboard';
 
 interface ChatInputProps {
   suggestions: SuggestionChip[];
   onSendMessage: (message: string) => void;
+  onClearChat: () => void;
+  searchId: string;
+  conversationId?: string;
+  onLoadConversation: (conversationId: string) => void;
+  onNewConversation: () => void;
   disabled?: boolean;
 }
 
-export function ChatInput({ suggestions, onSendMessage, disabled = false }: ChatInputProps) {
+export function ChatInput({
+  suggestions,
+  onSendMessage,
+  onClearChat,
+  searchId,
+  conversationId,
+  onLoadConversation,
+  onNewConversation,
+  disabled = false,
+}: ChatInputProps) {
   const [inputValue, setInputValue] = useState('');
 
   const handleSend = () => {
@@ -31,6 +46,24 @@ export function ChatInput({ suggestions, onSendMessage, disabled = false }: Chat
 
   return (
     <div className="p-4 border-t border-white/[0.06] bg-gs-card">
+      {/* Action Buttons */}
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          onClick={onClearChat}
+          className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-gs-text-muted hover:text-white hover:bg-white/[0.06] rounded-md transition-colors border border-white/[0.06]"
+        >
+          <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
+          Clear
+        </button>
+
+        <ConversationDropdown
+          searchId={searchId}
+          currentConversationId={conversationId}
+          onSelectConversation={onLoadConversation}
+          onNewConversation={onNewConversation}
+        />
+      </div>
+
       {/* Suggestion Chips */}
       <div className="flex gap-2 mb-3 overflow-x-auto pb-1 dashboard-scrollbar">
         {suggestions.map((chip) => (

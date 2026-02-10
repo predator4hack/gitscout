@@ -17,7 +17,7 @@ type SidebarMode = 'none' | 'ai-chat' | 'candidate-window';
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const { state: searchState } = useSearch();
+  const { state: searchState, updateCandidates, toggleStarCandidate } = useSearch();
 
   // Sidebar state - replaces simple isSidebarOpen boolean
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>('none');
@@ -43,6 +43,24 @@ export function DashboardPage() {
     }
   }, [searchState.sessionId, navigate]);
 
+  // Auto-open sidebar if was open before
+  useEffect(() => {
+    if (!searchState.sessionId) return;
+
+    const storedState = localStorage.getItem(`sidebar_state_${searchState.sessionId}`);
+    if (storedState === 'open') {
+      setSidebarMode('ai-chat');
+    }
+  }, [searchState.sessionId]);
+
+  // Save sidebar state on change
+  useEffect(() => {
+    if (!searchState.sessionId) return;
+
+    const state = sidebarMode === 'ai-chat' ? 'open' : 'closed';
+    localStorage.setItem(`sidebar_state_${searchState.sessionId}`, state);
+  }, [sidebarMode, searchState.sessionId]);
+
   // Fetch initial data and refetch when filters change
   useEffect(() => {
     if (!searchState.sessionId) return;
@@ -65,6 +83,11 @@ export function DashboardPage() {
           totalItems: response.totalCached,
           totalPages: Math.ceil(response.totalCached / response.pageSize),
         });
+
+        // Persist to Firestore after fetching candidates with filters
+        // Convert DashboardCandidate back to Candidate for API
+        const apiCandidates = response.candidates;
+        await updateCandidates(apiCandidates, Object.keys(filters).length > 0 ? filters : null);
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -73,9 +96,10 @@ export function DashboardPage() {
     };
 
     loadCandidates();
-  }, [searchState.sessionId, filters]);
+  }, [searchState.sessionId, filters, updateCandidates]);
 
-  const handleStarToggle = useCallback((id: string) => {
+  const handleStarToggle = useCallback(async (id: string) => {
+    // Optimistic UI update
     setCandidates((prev) =>
       prev.map((candidate) =>
         candidate.id === id
@@ -83,7 +107,10 @@ export function DashboardPage() {
           : candidate
       )
     );
-  }, []);
+
+    // Persist to Firestore
+    await toggleStarCandidate(id);
+  }, [toggleStarCandidate]);
 
   const handlePageChange = useCallback(async (page: number) => {
     if (!searchState.sessionId) return;
@@ -137,9 +164,13 @@ export function DashboardPage() {
     }
   }, [sidebarMode]);
 
-  const handleApplyFilters = useCallback((newFilters: CandidateFilters) => {
+  const handleApplyFilters = useCallback(async (newFilters: CandidateFilters) => {
     setFilters(newFilters);
     setPagination((prev) => ({ ...prev, currentPage: 0 }));
+
+    // Persist to Firestore after fetching the filtered candidates
+    // We need to wait for the next render cycle to get updated candidates
+    // So we'll handle persistence in the useEffect that tracks filters
   }, []);
 
   const handleFiltersAppliedFromChat = useCallback((filterProposal: FilterProposal) => {
@@ -153,12 +184,13 @@ export function DashboardPage() {
       lastContribution: (filterProposal.last_contribution as "30d" | "3m" | "6m" | "1y") || undefined,
     };
 
-    // Apply the filters
+    // Apply the filters (persistence happens in useEffect)
     handleApplyFilters(candidateFilters);
 
-    // Close the sidebar after applying filters
-    setSidebarMode('none');
-    setCandidateContext(null);
+    // KEEP SIDEBAR OPEN - don't close it after applying filters
+    // Remove these lines:
+    // setSidebarMode('none');
+    // setCandidateContext(null);
   }, [handleApplyFilters]);
 
   const handleToggleFilter = useCallback(() => {

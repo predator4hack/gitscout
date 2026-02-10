@@ -111,7 +111,7 @@ async def confirm_filter(
         chat_service = get_chat_service()
 
         # Get conversation
-        conversation = await chat_service.get_conversation(request.conversation_id)
+        conversation = await chat_service.get_conversation(request.conversation_id, request.job_search_id)
         if not conversation:
             raise HTTPException(status_code=404, detail="Conversation not found")
 
@@ -120,7 +120,7 @@ async def confirm_filter(
             raise HTTPException(status_code=403, detail="Not authorized")
 
         # Get the filter proposal message
-        messages = await chat_service.get_messages(request.conversation_id)
+        messages = await chat_service.get_messages(request.job_search_id, request.conversation_id)
         proposal_message = None
         for msg in messages:
             if msg.message_id == request.message_id:
@@ -162,10 +162,11 @@ async def confirm_filter(
                 text_content=confirmation_text,
                 tokens_used=len(confirmation_text) // 4,
             )
-            await chat_service.save_message(request.conversation_id, confirmation_message)
+            await chat_service.save_message(request.job_search_id, request.conversation_id, confirmation_message)
 
             # Update conversation state
             await chat_service.update_conversation_state(
+                request.job_search_id,
                 request.conversation_id,
                 state=ConversationState.COMPLETED,
                 current_filters=candidate_filters.model_dump(exclude_none=True),
@@ -188,10 +189,11 @@ async def confirm_filter(
                 text_content=rejection_text,
                 tokens_used=len(rejection_text) // 4,
             )
-            await chat_service.save_message(request.conversation_id, rejection_message)
+            await chat_service.save_message(request.job_search_id, request.conversation_id, rejection_message)
 
             # Reset state to gathering info
             await chat_service.update_conversation_state(
+                request.job_search_id,
                 request.conversation_id,
                 state=ConversationState.GATHERING_INFO,
             )
@@ -235,7 +237,7 @@ async def answer_clarification(
         search_cache = get_search_cache()
 
         # Get conversation
-        conversation = await chat_service.get_conversation(request.conversation_id)
+        conversation = await chat_service.get_conversation(request.conversation_id, request.job_search_id)
         if not conversation:
             raise HTTPException(status_code=404, detail="Conversation not found")
 
@@ -244,7 +246,7 @@ async def answer_clarification(
             raise HTTPException(status_code=403, detail="Not authorized")
 
         # Get the clarification message
-        messages = await chat_service.get_messages(request.conversation_id)
+        messages = await chat_service.get_messages(request.job_search_id, request.conversation_id)
         clarification_message = None
         for msg in messages:
             if msg.message_id == request.message_id:
@@ -346,10 +348,11 @@ async def answer_clarification(
             text_content=confirmation_text,
             tokens_used=len(confirmation_text) // 4,
         )
-        await chat_service.save_message(request.conversation_id, confirmation_message)
+        await chat_service.save_message(request.job_search_id, request.conversation_id, confirmation_message)
 
         # Update conversation state to completed
         await chat_service.update_conversation_state(
+            request.job_search_id,
             request.conversation_id,
             state=ConversationState.COMPLETED,
         )
@@ -376,12 +379,14 @@ async def answer_clarification(
 @router.get("/conversation", response_model=ConversationHistoryResponse)
 async def get_conversation_history(
     conversation_id: str = Query(..., description="Conversation ID"),
+    job_search_id: str = Query(..., description="Job search ID (parent of conversation)"),
     current_user: CurrentUser = None,
 ):
     """Get conversation history.
 
     Args:
         conversation_id: Conversation ID to retrieve
+        job_search_id: Job search ID (parent)
         current_user: Authenticated user
 
     Returns:
@@ -393,7 +398,7 @@ async def get_conversation_history(
         chat_service = get_chat_service()
 
         # Get conversation
-        conversation = await chat_service.get_conversation(conversation_id)
+        conversation = await chat_service.get_conversation(conversation_id, job_search_id)
         if not conversation:
             raise HTTPException(status_code=404, detail="Conversation not found")
 
@@ -402,7 +407,7 @@ async def get_conversation_history(
             raise HTTPException(status_code=403, detail="Not authorized")
 
         # Get messages
-        messages = await chat_service.get_messages(conversation_id)
+        messages = await chat_service.get_messages(job_search_id, conversation_id)
 
         logger.info(
             f"GET /chat/conversation complete - {len(messages)} messages retrieved"
@@ -421,12 +426,60 @@ async def get_conversation_history(
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
+@router.get("/conversations/by-search")
+async def list_conversations_by_search(
+    search_id: str = Query(..., alias="search_id", description="Job search ID"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of conversations to return"),
+    current_user: CurrentUser = None,
+):
+    """List all conversations for a job search.
+
+    Args:
+        search_id: Job search ID
+        limit: Maximum conversations to return
+        current_user: Authenticated user
+
+    Returns:
+        List of conversation summaries
+    """
+    logger.info(
+        f"GET /chat/conversations/by-search - user: {current_user.uid}, search: {search_id}, limit: {limit}"
+    )
+
+    try:
+        from app.services.job_search.job_search_service import get_job_search_service
+
+        chat_service = get_chat_service()
+        job_search_service = get_job_search_service()
+
+        # Verify user owns the job search
+        job_search = await job_search_service.get_job_search(search_id, current_user.uid)
+        if not job_search:
+            raise HTTPException(status_code=404, detail="Job search not found")
+
+        # Get conversations from subcollection
+        conversations = await chat_service.get_conversations_for_search(
+            job_search_id=search_id,
+            limit=limit
+        )
+
+        logger.info(f"GET /chat/conversations/by-search complete - {len(conversations)} conversations found")
+
+        return conversations
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"GET /chat/conversations/by-search internal error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
 @router.get("/conversation/by-session")
 async def get_conversation_by_session(
     session_id: str = Query(..., description="Search session ID"),
     current_user: CurrentUser = None,
 ):
-    """Get the most recent conversation for a search session.
+    """Get the most recent conversation for a search session (DEPRECATED - use /conversations/by-search).
 
     Args:
         session_id: Search session ID

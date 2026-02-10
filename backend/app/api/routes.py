@@ -14,8 +14,10 @@ from ..services.matching.ranker import rank_candidates
 from ..services.cache.search_cache import get_search_cache
 from ..services.filtering.candidate_filter import filter_candidates
 from ..services.firebase import is_firebase_initialized
+from ..services.firebase.auth import CurrentUser
 from ..services.skills.skills_cache import get_skills_cache
 from ..services.skills.skills_analyzer import SkillsAnalyzer
+from ..services.job_search.job_search_service import get_job_search_service
 
 # Type alias for progress callback
 ProgressCallback = Callable[[str, int, str], Awaitable[None]]
@@ -249,7 +251,10 @@ async def get_search_page(
 
 
 @router.post("/search/repos/stream")
-async def search_via_repos_stream(request: SearchRequest):
+async def search_via_repos_stream(
+    request: SearchRequest,
+    current_user: CurrentUser,
+):
     """
     SSE streaming endpoint for search with real-time progress updates.
 
@@ -258,7 +263,7 @@ async def search_via_repos_stream(request: SearchRequest):
     - complete: {event: "complete", sessionId: string, totalFound: number}
     - error: {event: "error", message: string}
     """
-    logger.info(f"POST /search/repos/stream - provider: {request.provider.value}, model: {request.model}")
+    logger.info(f"POST /search/repos/stream - user: {current_user.uid if current_user else 'anonymous'}, provider: {request.provider.value}, model: {request.model}")
 
     async def event_generator() -> AsyncGenerator[str, None]:
         try:
@@ -331,6 +336,29 @@ async def search_via_repos_stream(request: SearchRequest):
             )
 
             yield f"data: {json.dumps({'event': 'step', 'step': 'prepare', 'progress': 95, 'message': 'Results cached'})}\n\n"
+
+            # Also persist to Firestore (if user is authenticated)
+            if current_user:
+                try:
+                    job_search_service = get_job_search_service()
+                    # Convert candidates to dict format for Firestore
+                    candidates_dict = [
+                        candidate.model_dump() if hasattr(candidate, 'model_dump') else candidate
+                        for candidate in candidates
+                    ]
+                    await job_search_service.create_job_search(
+                        search_id=session_id,
+                        user_id=current_user.uid,
+                        job_description=request.jd_text,
+                        query=query_str,
+                        total_found=len(candidates),
+                        candidates=candidates_dict,
+                        jd_spec=spec.model_dump(),
+                    )
+                    logger.info(f"Job search {session_id[:8]}... persisted to Firestore")
+                except Exception as e:
+                    # Log error but don't fail the request - in-memory cache is sufficient
+                    logger.error(f"Failed to persist job search to Firestore: {e}", exc_info=True)
 
             # Complete
             yield f"data: {json.dumps({'event': 'complete', 'sessionId': session_id, 'totalFound': len(candidates)})}\n\n"

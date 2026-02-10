@@ -157,7 +157,7 @@ export async function getConversationHistory(
 }
 
 /**
- * Get conversation by session ID
+ * Get conversation by session ID (DEPRECATED - use listConversationsBySearch instead)
  */
 export async function getConversationBySession(
     sessionId: string
@@ -202,12 +202,67 @@ export async function getConversationBySession(
 }
 
 /**
+ * Conversation summary for dropdown list
+ */
+export interface ConversationSummary {
+    conversation_id: string;
+    title?: string;
+    state: string;
+    created_at: Date;
+    updated_at: Date;
+    message_count: number;
+}
+
+/**
+ * List conversations for a job search
+ */
+export async function listConversationsBySearch(
+    searchId: string,
+    limit: number = 10
+): Promise<ConversationSummary[]> {
+    const token = await getAuthToken();
+    if (!token) {
+        throw new Error("User not authenticated");
+    }
+
+    const response = await fetch(
+        `${config.apiBaseUrl}/api/chat/conversations/by-search?search_id=${searchId}&limit=${limit}`,
+        {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+
+    if (!response.ok) {
+        const error = await response
+            .json()
+            .catch(() => ({ detail: "Unknown error" }));
+        throw new Error(
+            error.detail || `HTTP error! status: ${response.status}`
+        );
+    }
+
+    const data = await response.json();
+
+    // Convert timestamp strings to Date objects
+    return data.conversations.map((conv: any) => ({
+        ...conv,
+        created_at: new Date(conv.created_at),
+        updated_at: new Date(conv.updated_at),
+    }));
+}
+
+/**
  * Submit answers to clarification questions
  */
 export async function answerClarification(
     conversationId: string,
     messageId: string,
-    answers: Record<string, string>
+    answers: Record<string, string>,
+    jobSearchId: string
 ): Promise<{
     status: string;
     session_id: string;
@@ -231,6 +286,7 @@ export async function answerClarification(
                 conversation_id: conversationId,
                 message_id: messageId,
                 answers,
+                job_search_id: jobSearchId,
             }),
         }
     );

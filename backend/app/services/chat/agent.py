@@ -56,7 +56,7 @@ class ChatAgent:
 
        Args:
            conversation_id: Existing conversation ID or None
-           session_id: Search session ID
+           session_id: Search session ID (same as job_search_id)
            user_id: User ID
            message: User message text
 
@@ -64,9 +64,12 @@ class ChatAgent:
        Returns:
            SendMessageResponse with conversation state and messages
        """
+       # session_id IS the job_search_id (they're the same value)
+       job_search_id = session_id
+
        # Get or create conversation
        if conversation_id:
-           conversation = await self.chat_service.get_conversation(conversation_id)
+           conversation = await self.chat_service.get_conversation(conversation_id, job_search_id)
            if not conversation:
                raise ValueError(f"Conversation {conversation_id} not found")
        else:
@@ -79,12 +82,12 @@ class ChatAgent:
            conversation_id = await self.chat_service.create_conversation(
                user_id, session_id, job_description
            )
-           conversation = await self.chat_service.get_conversation(conversation_id)
+           conversation = await self.chat_service.get_conversation(conversation_id, job_search_id)
 
 
        # Check token limit
        if not await self.chat_service.check_token_limit(
-           conversation_id, config.CHAT_MAX_TOKENS
+           job_search_id, conversation_id, config.CHAT_MAX_TOKENS
        ):
            # Send token limit message
            error_message = ChatMessage(
@@ -94,7 +97,7 @@ class ChatAgent:
                text_content="Token limit exceeded for this conversation. Please start a new conversation.",
                tokens_used=0,
            )
-           message_id = await self.chat_service.save_message(conversation_id, error_message)
+           message_id = await self.chat_service.save_message(job_search_id, conversation_id, error_message)
            error_message.message_id = message_id
 
 
@@ -114,13 +117,13 @@ class ChatAgent:
            text_content=message,
            tokens_used=self._estimate_tokens(message),
        )
-       message_id = await self.chat_service.save_message(conversation_id, user_message)
+       message_id = await self.chat_service.save_message(job_search_id, conversation_id, user_message)
        user_message.message_id = message_id
 
 
        # Update token count
        await self.chat_service.update_conversation_state(
-           conversation_id, tokens_used=user_message.tokens_used
+           job_search_id, conversation_id, tokens_used=user_message.tokens_used
        )
 
 
@@ -128,6 +131,7 @@ class ChatAgent:
        if conversation.state == ConversationState.IDLE or conversation.intent is None:
            intent = self.intent_classifier.classify(message, conversation.intent)
            await self.chat_service.update_conversation_state(
+               job_search_id,
                conversation_id,
                state=ConversationState.GATHERING_INFO,
                intent=intent,
@@ -139,22 +143,22 @@ class ChatAgent:
        # Route to appropriate handler
        if intent == ChatIntent.FILTER_CANDIDATES:
            response_messages = await self._handle_filter_request(
-               conversation_id, message, conversation.state
+               conversation_id, job_search_id, message, conversation.state
            )
        elif intent == ChatIntent.DRAFT_EMAIL:
            response_messages = await self._handle_email_request(
-               conversation_id, conversation.job_description
+               conversation_id, job_search_id, conversation.job_description
            )
        elif intent == ChatIntent.CANDIDATE_INFO:
-           response_messages = await self._handle_info_request(conversation_id, message)
+           response_messages = await self._handle_info_request(conversation_id, job_search_id, message)
        elif intent == ChatIntent.COMPARE_CANDIDATES:
-           response_messages = await self._handle_compare_request(conversation_id)
+           response_messages = await self._handle_compare_request(conversation_id, job_search_id)
        else:  # OUT_OF_SCOPE
-           response_messages = await self._handle_out_of_scope(conversation_id)
+           response_messages = await self._handle_out_of_scope(conversation_id, job_search_id)
 
 
        # Get updated conversation state
-       updated_conversation = await self.chat_service.get_conversation(conversation_id)
+       updated_conversation = await self.chat_service.get_conversation(conversation_id, job_search_id)
 
 
        # Determine if user action is required
@@ -174,13 +178,14 @@ class ChatAgent:
 
 
    async def _handle_filter_request(
-       self, conversation_id: str, message: str, current_state: ConversationState
+       self, conversation_id: str, job_search_id: str, message: str, current_state: ConversationState
    ) -> List[ChatMessage]:
        """Handle filter-related requests using LLM-powered clarification generation.
 
 
        Args:
            conversation_id: Conversation ID
+           job_search_id: Job search ID (parent)
            message: User message
            current_state: Current conversation state
 
@@ -189,7 +194,7 @@ class ChatAgent:
            List of response messages
        """
        # Get conversation and session data for context
-       conversation = await self.chat_service.get_conversation(conversation_id)
+       conversation = await self.chat_service.get_conversation(conversation_id, job_search_id)
        session_data = self.search_cache.get_session_data(conversation.session_id)
 
 
@@ -201,7 +206,7 @@ class ChatAgent:
                text_content="I couldn't find the search session data. Please try refreshing the page.",
                tokens_used=20,
            )
-           message_id = await self.chat_service.save_message(conversation_id, error_message)
+           message_id = await self.chat_service.save_message(job_search_id, conversation_id, error_message)
            error_message.message_id = message_id
            return [error_message]
 
@@ -213,7 +218,7 @@ class ChatAgent:
 
 
        # Get conversation history for context
-       messages = await self.chat_service.get_messages(conversation_id)
+       messages = await self.chat_service.get_messages(job_search_id, conversation_id)
        conversation_history = [
            {
                "role": msg.role.value,
@@ -244,12 +249,13 @@ class ChatAgent:
                    " ".join([q.question for q in multi_clarification.questions])
                ),
            )
-           message_id = await self.chat_service.save_message(conversation_id, clarification_message)
+           message_id = await self.chat_service.save_message(job_search_id, conversation_id, clarification_message)
            clarification_message.message_id = message_id
 
 
            # Update state to gathering info
            await self.chat_service.update_conversation_state(
+               job_search_id,
                conversation_id,
                state=ConversationState.GATHERING_INFO,
                tokens_used=clarification_message.tokens_used,
@@ -269,10 +275,10 @@ class ChatAgent:
                text_content=error_text,
                tokens_used=self._estimate_tokens(error_text),
            )
-           message_id = await self.chat_service.save_message(conversation_id, fallback_message)
+           message_id = await self.chat_service.save_message(job_search_id, conversation_id, fallback_message)
            fallback_message.message_id = message_id
            await self.chat_service.update_conversation_state(
-               conversation_id, tokens_used=fallback_message.tokens_used
+               job_search_id, conversation_id, tokens_used=fallback_message.tokens_used
            )
 
 
@@ -280,13 +286,14 @@ class ChatAgent:
 
 
    async def _handle_email_request(
-       self, conversation_id: str, job_description: Optional[str]
+       self, conversation_id: str, job_search_id: str, job_description: Optional[str]
    ) -> List[ChatMessage]:
        """Handle email drafting requests.
 
 
        Args:
            conversation_id: Conversation ID
+           job_search_id: Job search ID (parent)
            job_description: Job description from search
 
 
@@ -305,12 +312,13 @@ class ChatAgent:
            email_draft_content=email_draft,
            tokens_used=self._estimate_tokens(email_draft.subject + email_draft.body),
        )
-       message_id = await self.chat_service.save_message(conversation_id, email_message)
+       message_id = await self.chat_service.save_message(job_search_id, conversation_id, email_message)
        email_message.message_id = message_id
 
 
        # Update state to completed
        await self.chat_service.update_conversation_state(
+           job_search_id,
            conversation_id,
            state=ConversationState.COMPLETED,
            tokens_used=email_message.tokens_used,
@@ -321,13 +329,14 @@ class ChatAgent:
 
 
    async def _handle_info_request(
-       self, conversation_id: str, message: str
+       self, conversation_id: str, job_search_id: str, message: str
    ) -> List[ChatMessage]:
        """Handle candidate info requests.
 
 
        Args:
            conversation_id: Conversation ID
+           job_search_id: Job search ID (parent)
            message: User message
 
 
@@ -343,22 +352,23 @@ class ChatAgent:
            text_content=response_text,
            tokens_used=self._estimate_tokens(response_text),
        )
-       message_id = await self.chat_service.save_message(conversation_id, response_message)
+       message_id = await self.chat_service.save_message(job_search_id, conversation_id, response_message)
        response_message.message_id = message_id
        await self.chat_service.update_conversation_state(
-           conversation_id, tokens_used=response_message.tokens_used
+           job_search_id, conversation_id, tokens_used=response_message.tokens_used
        )
 
 
        return [response_message]
 
 
-   async def _handle_compare_request(self, conversation_id: str) -> List[ChatMessage]:
+   async def _handle_compare_request(self, conversation_id: str, job_search_id: str) -> List[ChatMessage]:
        """Handle candidate comparison requests.
 
 
        Args:
            conversation_id: Conversation ID
+           job_search_id: Job search ID (parent)
 
 
        Returns:
@@ -372,22 +382,23 @@ class ChatAgent:
            text_content=response_text,
            tokens_used=self._estimate_tokens(response_text),
        )
-       message_id = await self.chat_service.save_message(conversation_id, response_message)
+       message_id = await self.chat_service.save_message(job_search_id, conversation_id, response_message)
        response_message.message_id = message_id
        await self.chat_service.update_conversation_state(
-           conversation_id, tokens_used=response_message.tokens_used
+           job_search_id, conversation_id, tokens_used=response_message.tokens_used
        )
 
 
        return [response_message]
 
 
-   async def _handle_out_of_scope(self, conversation_id: str) -> List[ChatMessage]:
+   async def _handle_out_of_scope(self, conversation_id: str, job_search_id: str) -> List[ChatMessage]:
        """Handle out-of-scope requests.
 
 
        Args:
            conversation_id: Conversation ID
+           job_search_id: Job search ID (parent)
 
 
        Returns:
@@ -401,8 +412,9 @@ class ChatAgent:
            text_content=response_text,
            tokens_used=self._estimate_tokens(response_text),
        )
-       await self.chat_service.save_message(conversation_id, response_message)
+       await self.chat_service.save_message(job_search_id, conversation_id, response_message)
        await self.chat_service.update_conversation_state(
+           job_search_id,
            conversation_id,
            state=ConversationState.COMPLETED,
            tokens_used=response_message.tokens_used,

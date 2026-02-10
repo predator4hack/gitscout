@@ -15,7 +15,8 @@ from app.models.chat import (
 class ChatService:
     """Service for managing chat conversations and messages in Firestore."""
 
-    CONVERSATIONS_COLLECTION = "conversations"
+    JOB_SEARCHES_COLLECTION = "job_searches"
+    CONVERSATIONS_SUBCOLLECTION = "conversations"
     MESSAGES_SUBCOLLECTION = "messages"
 
     def __init__(self):
@@ -28,11 +29,11 @@ class ChatService:
         session_id: str,
         job_description: Optional[str] = None,
     ) -> str:
-        """Create a new conversation.
+        """Create a new conversation under a job search subcollection.
 
         Args:
             user_id: User ID who owns the conversation
-            session_id: Associated search session ID
+            session_id: Associated search session ID (same as job_search_id)
             job_description: Optional job description from search
 
         Returns:
@@ -50,26 +51,32 @@ class ChatService:
             "updatedAt": self.firestore.get_server_timestamp(),
         }
 
-        conversation_id = await self.firestore.create_document(
-            self.CONVERSATIONS_COLLECTION,
+        # Create conversation under job search subcollection
+        conversation_id = await self.firestore.create_subcollection_document(
+            collection=self.JOB_SEARCHES_COLLECTION,
+            document_id=session_id,  # Parent job search ID
+            subcollection=self.CONVERSATIONS_SUBCOLLECTION,
             data=conversation_data,
         )
 
         return conversation_id
 
     async def get_conversation(
-        self, conversation_id: str
+        self, conversation_id: str, job_search_id: str
     ) -> Optional[ConversationMetadata]:
-        """Get conversation metadata by ID.
+        """Get conversation metadata by ID from nested subcollection.
 
         Args:
             conversation_id: Conversation ID
+            job_search_id: Parent job search ID
 
         Returns:
             ConversationMetadata or None if not found
         """
+        # Get document from nested subcollection
         doc_data = await self.firestore.get_document(
-            self.CONVERSATIONS_COLLECTION, conversation_id
+            collection=f"{self.JOB_SEARCHES_COLLECTION}/{job_search_id}/{self.CONVERSATIONS_SUBCOLLECTION}",
+            document_id=conversation_id
         )
 
         if not doc_data:
@@ -90,33 +97,52 @@ class ChatService:
             updated_at=doc_data.get("updatedAt"),
         )
 
+    async def get_conversations_for_search(
+        self, job_search_id: str, limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """Get all conversations for a job search from subcollection.
+
+        Args:
+            job_search_id: Job search ID
+            limit: Maximum number of conversations to retrieve
+
+        Returns:
+            List of conversation dictionaries ordered by most recent
+        """
+        conversations = await self.firestore.get_subcollection_documents(
+            collection=self.JOB_SEARCHES_COLLECTION,
+            document_id=job_search_id,
+            subcollection=self.CONVERSATIONS_SUBCOLLECTION,
+            order_by="updatedAt",
+            limit=limit,
+        )
+
+        return conversations
+
     async def get_conversation_by_session(
         self, session_id: str, user_id: str
     ) -> Optional[ConversationMetadata]:
-        """Get the most recent conversation for a session.
+        """Get the most recent conversation for a session (DEPRECATED - use get_conversations_for_search).
 
         Args:
-            session_id: Search session ID
+            session_id: Search session ID (same as job_search_id)
             user_id: User ID
 
         Returns:
             ConversationMetadata or None if not found
         """
-        conversations = await self.firestore.query_documents(
-            self.CONVERSATIONS_COLLECTION,
-            filters=[
-                ("sessionId", "==", session_id),
-                ("userId", "==", user_id),
-            ],
-            order_by="createdAt",
-            order_direction="DESCENDING",
-            limit=1,
-        )
+        # Get conversations from subcollection
+        conversations = await self.get_conversations_for_search(session_id, limit=1)
 
         if not conversations:
             return None
 
         doc_data = conversations[0]
+
+        # Verify user owns this conversation
+        if doc_data.get("userId") != user_id:
+            return None
+
         return ConversationMetadata(
             conversation_id=doc_data.get("id"),
             user_id=doc_data.get("userId"),
@@ -132,11 +158,12 @@ class ChatService:
         )
 
     async def save_message(
-        self, conversation_id: str, message: ChatMessage
+        self, job_search_id: str, conversation_id: str, message: ChatMessage
     ) -> str:
-        """Save a message to a conversation.
+        """Save a message to a conversation in nested subcollection.
 
         Args:
+            job_search_id: Job search ID (parent)
             conversation_id: Conversation ID
             message: ChatMessage to save
 
@@ -171,31 +198,34 @@ class ChatService:
         if message.step_content is not None:
             message_data["stepContent"] = message.step_content
 
+        # Save to nested subcollection: job_searches/{id}/conversations/{id}/messages
         message_id = await self.firestore.create_subcollection_document(
-            self.CONVERSATIONS_COLLECTION,
-            conversation_id,
-            self.MESSAGES_SUBCOLLECTION,
+            collection=f"{self.JOB_SEARCHES_COLLECTION}/{job_search_id}/{self.CONVERSATIONS_SUBCOLLECTION}",
+            document_id=conversation_id,
+            subcollection=self.MESSAGES_SUBCOLLECTION,
             data=message_data,
         )
 
         return message_id
 
     async def get_messages(
-        self, conversation_id: str, limit: Optional[int] = None
+        self, job_search_id: str, conversation_id: str, limit: Optional[int] = None
     ) -> List[ChatMessage]:
-        """Get messages for a conversation.
+        """Get messages for a conversation from nested subcollection.
 
         Args:
+            job_search_id: Job search ID (parent)
             conversation_id: Conversation ID
             limit: Optional maximum number of messages to retrieve
 
         Returns:
             List of ChatMessage objects
         """
+        # Get messages from nested subcollection
         message_docs = await self.firestore.get_subcollection_documents(
-            self.CONVERSATIONS_COLLECTION,
-            conversation_id,
-            self.MESSAGES_SUBCOLLECTION,
+            collection=f"{self.JOB_SEARCHES_COLLECTION}/{job_search_id}/{self.CONVERSATIONS_SUBCOLLECTION}",
+            document_id=conversation_id,
+            subcollection=self.MESSAGES_SUBCOLLECTION,
             order_by="timestamp",
             limit=limit,
         )
@@ -223,6 +253,7 @@ class ChatService:
 
     async def update_conversation_state(
         self,
+        job_search_id: str,
         conversation_id: str,
         state: Optional[ConversationState] = None,
         intent: Optional[ChatIntent] = None,
@@ -230,9 +261,10 @@ class ChatService:
         current_filters: Optional[Dict[str, Any]] = None,
         increment_clarifications: bool = False,
     ) -> bool:
-        """Update conversation state and metadata.
+        """Update conversation state and metadata in nested subcollection.
 
         Args:
+            job_search_id: Job search ID (parent)
             conversation_id: Conversation ID
             state: New conversation state
             intent: New intent
@@ -256,60 +288,91 @@ class ChatService:
 
         # Get current conversation to update tokens
         if tokens_used is not None:
-            conv = await self.get_conversation(conversation_id)
+            conv = await self.get_conversation(conversation_id, job_search_id)
             if conv:
                 update_data["totalTokensUsed"] = conv.total_tokens_used + tokens_used
 
         # Increment clarification count if needed
         if increment_clarifications:
-            conv = await self.get_conversation(conversation_id)
+            conv = await self.get_conversation(conversation_id, job_search_id)
             if conv:
                 update_data["clarificationCount"] = conv.clarification_count + 1
 
         if update_data:
+            # Update document in nested subcollection
             await self.firestore.update_document(
-                self.CONVERSATIONS_COLLECTION,
-                conversation_id,
-                update_data,
+                collection=f"{self.JOB_SEARCHES_COLLECTION}/{job_search_id}/{self.CONVERSATIONS_SUBCOLLECTION}",
+                document_id=conversation_id,
+                data=update_data,
             )
 
         return True
 
     async def check_token_limit(
-        self, conversation_id: str, max_tokens: int
+        self, job_search_id: str, conversation_id: str, max_tokens: int
     ) -> bool:
         """Check if conversation has exceeded token limit.
 
         Args:
+            job_search_id: Job search ID (parent)
             conversation_id: Conversation ID
             max_tokens: Maximum allowed tokens
 
         Returns:
             True if under limit, False if exceeded
         """
-        conversation = await self.get_conversation(conversation_id)
+        conversation = await self.get_conversation(conversation_id, job_search_id)
         if not conversation:
             return True
 
         return conversation.total_tokens_used < max_tokens
 
     async def check_clarification_limit(
-        self, conversation_id: str, max_clarifications: int
+        self, job_search_id: str, conversation_id: str, max_clarifications: int
     ) -> bool:
         """Check if conversation has exceeded clarification limit.
 
         Args:
+            job_search_id: Job search ID (parent)
             conversation_id: Conversation ID
             max_clarifications: Maximum allowed clarifications
 
         Returns:
             True if under limit, False if exceeded
         """
-        conversation = await self.get_conversation(conversation_id)
+        conversation = await self.get_conversation(conversation_id, job_search_id)
         if not conversation:
             return True
 
         return conversation.clarification_count < max_clarifications
+
+    async def save_candidate_snapshot(
+        self,
+        job_search_id: str,
+        conversation_id: str,
+        candidates: List[Dict[str, Any]]
+    ) -> bool:
+        """Save snapshot of candidates at time of conversation.
+
+        Args:
+            job_search_id: Job search ID (parent)
+            conversation_id: Conversation ID
+            candidates: List of candidate dictionaries to snapshot
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            await self.firestore.update_document(
+                collection=f"{self.JOB_SEARCHES_COLLECTION}/{job_search_id}/{self.CONVERSATIONS_SUBCOLLECTION}",
+                document_id=conversation_id,
+                data={"candidateSnapshot": candidates}
+            )
+            return True
+        except Exception as e:
+            # Log error but don't fail the conversation creation
+            print(f"Failed to save candidate snapshot: {e}")
+            return False
 
 
 # Global service instance

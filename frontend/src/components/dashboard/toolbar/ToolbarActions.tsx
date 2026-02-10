@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Icon } from '../../shared/Icon';
 
 interface ToolbarActionsProps {
@@ -9,6 +10,7 @@ interface ToolbarActionsProps {
 export function ToolbarActions({ onHelpClick, onExportClick }: ToolbarActionsProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -33,6 +35,11 @@ export function ToolbarActions({ onHelpClick, onExportClick }: ToolbarActionsPro
     onHelpClick();
   };
 
+  const handleHistoryClick = () => {
+    setIsMenuOpen(false);
+    navigate('/history');
+  };
+
   return (
     <>
       {/* Desktop: show all buttons inline */}
@@ -44,7 +51,10 @@ export function ToolbarActions({ onHelpClick, onExportClick }: ToolbarActionsPro
           <Icon icon="lucide:download" className="w-3.5 h-3.5" />
           Export CSV
         </button>
-        <button className="flex items-center gap-1.5 hover:text-white transition-colors">
+        <button
+          className="flex items-center gap-1.5 hover:text-white transition-colors"
+          onClick={handleHistoryClick}
+        >
           <Icon icon="lucide:history" className="w-3.5 h-3.5" />
           History
         </button>
@@ -77,6 +87,7 @@ export function ToolbarActions({ onHelpClick, onExportClick }: ToolbarActionsPro
             </button>
             <button
               className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gs-text-muted hover:text-white hover:bg-white/[0.06] transition-colors"
+              onClick={handleHistoryClick}
             >
               <Icon icon="lucide:history" className="w-3.5 h-3.5" />
               History
