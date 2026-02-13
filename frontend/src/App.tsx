@@ -8,6 +8,7 @@ import { SearchApp } from './pages/SearchApp';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProcessingPage } from './pages/ProcessingPage';
 import { HistoryPage } from './pages/HistoryPage';
+import { ProfilePage } from './pages/ProfilePage';
 
 function App() {
   return (
@@ -31,6 +32,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <HistoryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             }
           />

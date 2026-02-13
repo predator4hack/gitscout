@@ -4,7 +4,6 @@ import { Hero } from '../components/landing/Hero';
 import { BentoGrid } from '../components/landing/BentoGrid';
 import { Methodology } from '../components/landing/Methodology';
 import { FAQ } from '../components/landing/FAQ';
-import { CTA } from '../components/landing/CTA';
 import { Footer } from '../components/landing/Footer';
 
 export function LandingPage() {
@@ -16,7 +15,6 @@ export function LandingPage() {
       <BentoGrid />
       <Methodology />
       <FAQ />
-      <CTA />
       <Footer />
     </div>
   );

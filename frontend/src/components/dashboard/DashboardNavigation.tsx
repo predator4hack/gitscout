@@ -31,9 +31,12 @@ export function DashboardNavigation() {
       <div className="flex items-center gap-4 text-[13px] font-medium">
         {/* User name */}
         {currentUser && (
-          <span className="text-gs-text-muted text-xs hidden sm:inline">
+          <Link
+            to="/profile"
+            className="text-gs-text-muted hover:text-white text-xs hidden sm:inline transition-colors duration-200"
+          >
             {currentUser.displayName || currentUser.email}
-          </span>
+          </Link>
         )}
 
         <Link

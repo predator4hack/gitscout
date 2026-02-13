@@ -16,6 +16,8 @@ from pydantic import BaseModel
 from app.services.job_search.job_search_service import get_job_search_service
 from app.services.firebase.auth import CurrentUser
 from app.models.job_search import JobSearchSummary
+from app.services.cache.search_cache import get_search_cache, CachedSearch
+import time
 
 logger = logging.getLogger("gitscout.job_search")
 
@@ -138,6 +140,22 @@ async def get_job_search(
             raise HTTPException(
                 status_code=404,
                 detail=f"Job search {search_id} not found"
+            )
+
+        # Repopulate cache for historical searches to enable pagination/chat/filters
+        cache = get_search_cache()
+        if not cache.get_session_data(search_id):
+            logger.info(f"Repopulating cache for historical search {search_id}")
+            now = time.time()
+            cache._cache[search_id] = CachedSearch(
+                session_id=search_id,
+                candidates=job_search.candidates,
+                query=job_search.query,
+                total_found=job_search.total_found,
+                created_at=now,
+                last_accessed=now,
+                jd_spec=job_search.jd_spec,
+                jd_text=job_search.job_description
             )
 
         response = JobSearchResponse(

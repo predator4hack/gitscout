@@ -143,7 +143,7 @@ class ChatAgent:
        # Route to appropriate handler
        if intent == ChatIntent.FILTER_CANDIDATES:
            response_messages = await self._handle_filter_request(
-               conversation_id, job_search_id, message, conversation.state
+               conversation_id, job_search_id, message, conversation.state, user_id
            )
        elif intent == ChatIntent.DRAFT_EMAIL:
            response_messages = await self._handle_email_request(
@@ -178,7 +178,7 @@ class ChatAgent:
 
 
    async def _handle_filter_request(
-       self, conversation_id: str, job_search_id: str, message: str, current_state: ConversationState
+       self, conversation_id: str, job_search_id: str, message: str, current_state: ConversationState, user_id: str
    ) -> List[ChatMessage]:
        """Handle filter-related requests using LLM-powered clarification generation.
 
@@ -188,6 +188,7 @@ class ChatAgent:
            job_search_id: Job search ID (parent)
            message: User message
            current_state: Current conversation state
+           user_id: User ID for Firestore fallback
 
 
        Returns:
@@ -199,16 +200,47 @@ class ChatAgent:
 
 
        if not session_data:
-           error_message = ChatMessage(
-               conversation_id=conversation_id,
-               role=MessageRole.ASSISTANT,
-               type=MessageType.TEXT,
-               text_content="I couldn't find the search session data. Please try refreshing the page.",
-               tokens_used=20,
-           )
-           message_id = await self.chat_service.save_message(job_search_id, conversation_id, error_message)
-           error_message.message_id = message_id
-           return [error_message]
+           # Fallback to Firestore for historical searches
+           try:
+               from app.services.job_search.job_search_service import get_job_search_service
+               from app.services.cache.search_cache import CachedSearch
+               import time
+
+               logger.info(f"Cache miss for session {conversation.session_id}, falling back to Firestore")
+
+               job_search_service = get_job_search_service()
+               job_search = await job_search_service.get_job_search(conversation.session_id, user_id)
+
+               if job_search:
+                   # Repopulate cache by directly creating CachedSearch entry
+                   logger.info(f"Repopulating cache for session {conversation.session_id}")
+                   now = time.time()
+                   self.search_cache._cache[conversation.session_id] = CachedSearch(
+                       session_id=conversation.session_id,
+                       candidates=job_search.candidates,
+                       query=job_search.query,
+                       total_found=job_search.total_found,
+                       created_at=now,
+                       last_accessed=now,
+                       jd_spec=job_search.jd_spec,
+                       jd_text=job_search.job_description
+                   )
+                   session_data = self.search_cache.get_session_data(conversation.session_id)
+           except Exception as e:
+               logger.error(f"Failed to fallback to Firestore: {e}", exc_info=True)
+
+           # If still no session_data after fallback attempt, return error
+           if not session_data:
+               error_message = ChatMessage(
+                   conversation_id=conversation_id,
+                   role=MessageRole.ASSISTANT,
+                   type=MessageType.TEXT,
+                   text_content="I couldn't find the search session data. Please try refreshing the page.",
+                   tokens_used=20,
+               )
+               message_id = await self.chat_service.save_message(job_search_id, conversation_id, error_message)
+               error_message.message_id = message_id
+               return [error_message]
 
 
        # Get context
